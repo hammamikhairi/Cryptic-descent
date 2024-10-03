@@ -1,0 +1,4 @@
+raylib.dll
+*.exe
+tmp/
+.air.toml
