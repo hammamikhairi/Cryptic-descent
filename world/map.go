@@ -3,18 +3,9 @@ package world
 import (
 	"math/rand"
 
-	rl "github.com/gen2brain/raylib-go/raylib"
-)
+	helpers "crydes/helpers"
 
-const (
-	ScreenWidth  = 800
-	ScreenHeight = 800
-	TileSize     = 16 // Smaller tile size for a more compact map
-	MapWidth     = 80
-	MapHeight    = 80
-	MaxDepth     = 5  // Number of divisions for the BSP tree
-	MinRoomSize  = 5  // Minimum size for a room
-	MaxRoomSize  = 12 // Maximum size for a room
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type Rectangle struct {
@@ -43,7 +34,7 @@ type Textures struct {
 }
 
 type Map struct {
-	dungeon [MapWidth][MapHeight]int
+	dungeon [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int
 	rooms   []Rectangle
 
 	Textures
@@ -53,7 +44,7 @@ func NewMap() *Map {
 
 	m := &Map{
 		rooms:   []Rectangle{},
-		dungeon: [MapWidth][MapHeight]int{},
+		dungeon: [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int{},
 		Textures: Textures{
 			cornersTexture: make(map[string]rl.Texture2D),
 			wallTextures:   make(map[string]rl.Texture2D),
@@ -69,15 +60,15 @@ func NewMap() *Map {
 
 // Initialize the dungeon with walls.
 func (m *Map) initDungeon() {
-	for x := 0; x < MapWidth; x++ {
-		for y := 0; y < MapHeight; y++ {
+	for x := 0; x < helpers.MAP_WIDTH; x++ {
+		for y := 0; y < helpers.MAP_HEIGHT; y++ {
 			m.dungeon[x][y] = 0 // 1 means wall
 		}
 	}
 }
 
 func (m *Map) FirstRoomPosition() (float32, float32) {
-	return float32((m.rooms[0].X + m.rooms[0].Width/2) * TileSize), float32((m.rooms[0].Y + m.rooms[0].Height/2) * TileSize)
+	return float32((m.rooms[0].X + m.rooms[0].Width/2) * helpers.TILE_SIZE), float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
 }
 
 func (m *Map) SwitchMap() (float32, float32) {
@@ -92,7 +83,7 @@ func (m *Map) generateDungeon() {
 
 	for len(m.rooms) < 3 {
 		m.rooms = []Rectangle{}
-		m.bspSplit(Rectangle{4, 4, MapWidth - 8, MapHeight - 8}, 0)
+		m.bspSplit(Rectangle{4, 4, helpers.MAP_WIDTH - 8, helpers.MAP_HEIGHT - 8}, 0)
 	}
 
 	for _, room := range m.rooms {
@@ -103,9 +94,9 @@ func (m *Map) generateDungeon() {
 
 // Split the map into rooms using Binary Space Partitioning.
 func (m *Map) bspSplit(area Rectangle, depth int) {
-	if depth >= MaxDepth {
-		roomWidth := rand.Intn(MaxRoomSize-MinRoomSize+1) + MinRoomSize
-		roomHeight := rand.Intn(MaxRoomSize-MinRoomSize+1) + MinRoomSize
+	if depth >= helpers.MAX_DEPTH {
+		roomWidth := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
+		roomHeight := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
 
 		if int(area.Width)-roomWidth < 3 || int(area.Height)-roomHeight < 3 {
 			return
@@ -118,11 +109,11 @@ func (m *Map) bspSplit(area Rectangle, depth int) {
 		return
 	}
 
-	if rand.Intn(2) == 0 && area.Width > MinRoomSize*2 {
+	if rand.Intn(2) == 0 && area.Width > helpers.MIN_ROOM_SIZE*2 {
 		split := rand.Intn(int(area.Width)/2) + int(area.Width/4)
 		m.bspSplit(Rectangle{area.X, area.Y, int32(split), area.Height}, depth+1)
 		m.bspSplit(Rectangle{area.X + int32(split), area.Y, area.Width - int32(split), area.Height}, depth+1)
-	} else if area.Height > MinRoomSize*2 {
+	} else if area.Height > helpers.MIN_ROOM_SIZE*2 {
 		split := rand.Intn(int(area.Height)/2) + int(area.Height/4)
 		m.bspSplit(Rectangle{area.X, area.Y, area.Width, int32(split)}, depth+1)
 		m.bspSplit(Rectangle{area.X, area.Y + int32(split), area.Width, area.Height - int32(split)}, depth+1)
@@ -176,29 +167,29 @@ func max(a, b int32) int32 {
 }
 
 func (m *Map) Render() {
-	for x := 0; x < MapWidth; x++ {
-		for y := 0; y < MapHeight; y++ {
+	for x := 0; x < helpers.MAP_WIDTH; x++ {
+		for y := 0; y < helpers.MAP_HEIGHT; y++ {
 			if m.dungeon[x][y] == 1 {
-				rl.DrawTexture(m.floorTexture, int32(x*TileSize), int32(y*TileSize), rl.White)
+				rl.DrawTexture(m.floorTexture, int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 			} else {
 				if valid, corner := m.isDungeonCorner(x, y); valid {
 					switch corner {
 					case cornerTL:
-						rl.DrawTexture(m.cornersTexture["TL"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["TL"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case cornerBR:
-						rl.DrawTexture(m.cornersTexture["BR"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["BR"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case cornerTR:
-						rl.DrawTexture(m.cornersTexture["TR"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["TR"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case cornerBL:
-						rl.DrawTexture(m.cornersTexture["BL"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["BL"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case innerCornerTL:
-						rl.DrawTexture(m.cornersTexture["TLI"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["TLI"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case innerCornerBR:
-						rl.DrawTexture(m.cornersTexture["BRI"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["BRI"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case innerCornerTR:
-						rl.DrawTexture(m.cornersTexture["TRI"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["TRI"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case innerCornerBL:
-						rl.DrawTexture(m.cornersTexture["BLI"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.cornersTexture["BLI"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					}
 					continue
 				}
@@ -206,13 +197,13 @@ func (m *Map) Render() {
 				if valid, wall := m.isDungeonWall(x, y); valid {
 					switch wall {
 					case wallTop:
-						rl.DrawTexture(m.wallTextures["T"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.wallTextures["T"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case wallBottom:
-						rl.DrawTexture(m.wallTextures["B"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.wallTextures["B"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case wallLeft:
-						rl.DrawTexture(m.wallTextures["L"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.wallTextures["L"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					case wallRight:
-						rl.DrawTexture(m.wallTextures["R"], int32(x*TileSize), int32(y*TileSize), rl.White)
+						rl.DrawTexture(m.wallTextures["R"], int32(x*helpers.TILE_SIZE), int32(y*helpers.TILE_SIZE), rl.White)
 					}
 					continue
 				}
@@ -258,7 +249,7 @@ type Player struct {
 
 func (m *Map) isDungeonCorner(x, y int) (bool, cornerType) {
 	// Ensure we're checking within valid dungeon bounds
-	if x <= 0 || x >= MapWidth || y <= 0 || y >= MapHeight {
+	if x <= 0 || x >= helpers.MAP_WIDTH || y <= 0 || y >= helpers.MAP_HEIGHT {
 		return false, noCorner
 	}
 
@@ -268,15 +259,15 @@ func (m *Map) isDungeonCorner(x, y int) (bool, cornerType) {
 		return true, cornerBR
 	}
 	// Top-right corner
-	if x < MapWidth-1 && y > 0 && m.dungeon[x+1][y-1] == 1 && m.dungeon[x+1][y] == 0 && m.dungeon[x][y-1] == 0 {
+	if x < helpers.MAP_WIDTH-1 && y > 0 && m.dungeon[x+1][y-1] == 1 && m.dungeon[x+1][y] == 0 && m.dungeon[x][y-1] == 0 {
 		return true, cornerBL
 	}
 	// Bottom-left corner
-	if x > 0 && y < MapHeight-1 && m.dungeon[x-1][y+1] == 1 && m.dungeon[x-1][y] == 0 && m.dungeon[x][y+1] == 0 {
+	if x > 0 && y < helpers.MAP_HEIGHT-1 && m.dungeon[x-1][y+1] == 1 && m.dungeon[x-1][y] == 0 && m.dungeon[x][y+1] == 0 {
 		return true, cornerTR
 	}
 	// Bottom-right corner
-	if x < MapWidth-1 && y < MapHeight-1 && m.dungeon[x+1][y+1] == 1 && m.dungeon[x+1][y] == 0 && m.dungeon[x][y+1] == 0 {
+	if x < helpers.MAP_WIDTH-1 && y < helpers.MAP_HEIGHT-1 && m.dungeon[x+1][y+1] == 1 && m.dungeon[x+1][y] == 0 && m.dungeon[x][y+1] == 0 {
 		return true, cornerTL
 	}
 
@@ -285,15 +276,15 @@ func (m *Map) isDungeonCorner(x, y int) (bool, cornerType) {
 		return true, innerCornerTL
 	}
 
-	if x < MapWidth-1 && y > 0 && m.dungeon[x+1][y-1] == 1 && m.dungeon[x+1][y] == 1 && m.dungeon[x][y-1] == 1 {
+	if x < helpers.MAP_WIDTH-1 && y > 0 && m.dungeon[x+1][y-1] == 1 && m.dungeon[x+1][y] == 1 && m.dungeon[x][y-1] == 1 {
 		return true, innerCornerTR
 	}
 
-	if x > 0 && y < MapHeight-1 && m.dungeon[x-1][y+1] == 1 && m.dungeon[x-1][y] == 1 && m.dungeon[x][y+1] == 1 {
+	if x > 0 && y < helpers.MAP_HEIGHT-1 && m.dungeon[x-1][y+1] == 1 && m.dungeon[x-1][y] == 1 && m.dungeon[x][y+1] == 1 {
 		return true, innerCornerBL
 	}
 
-	if x < MapWidth-1 && y < MapHeight-1 && m.dungeon[x+1][y+1] == 1 && m.dungeon[x+1][y] == 1 && m.dungeon[x][y+1] == 1 {
+	if x < helpers.MAP_WIDTH-1 && y < helpers.MAP_HEIGHT-1 && m.dungeon[x+1][y+1] == 1 && m.dungeon[x+1][y] == 1 && m.dungeon[x][y+1] == 1 {
 		return true, innerCornerBR
 	}
 
@@ -313,7 +304,7 @@ const (
 
 func (m *Map) isDungeonWall(x, y int) (bool, wallDirection) {
 	// Ensure we're checking within valid dungeon bounds
-	if x <= 0 || x >= MapWidth-1 || y <= 0 || y >= MapHeight-1 {
+	if x <= 0 || x >= helpers.MAP_WIDTH-1 || y <= 0 || y >= helpers.MAP_HEIGHT-1 {
 		return false, noWall
 	}
 
@@ -325,7 +316,7 @@ func (m *Map) isDungeonWall(x, y int) (bool, wallDirection) {
 		return true, wallLeft
 	}
 
-	if x < MapWidth-1 && m.dungeon[x+1][y] == 1 && m.dungeon[x-1][y] == 0 {
+	if x < helpers.MAP_WIDTH-1 && m.dungeon[x+1][y] == 1 && m.dungeon[x-1][y] == 0 {
 		return true, wallRight
 	}
 
@@ -333,10 +324,31 @@ func (m *Map) isDungeonWall(x, y int) (bool, wallDirection) {
 		return true, wallBottom
 	}
 
-	if y < MapHeight-1 && m.dungeon[x][y+1] == 1 && m.dungeon[x][y-1] == 0 {
+	if y < helpers.MAP_HEIGHT-1 && m.dungeon[x][y+1] == 1 && m.dungeon[x][y-1] == 0 {
 		return true, wallTop
 	}
 
 	// If none of the wall conditions are met, return false
 	return false, noWall
+}
+
+// IsWalkable checks if a map tile is walkable.
+func (m *Map) IsWalkable(x, y int) bool {
+	// Check boundaries first
+	if x < 0 || x >= helpers.MAP_WIDTH || y < 0 || y >= helpers.MAP_HEIGHT {
+		return false
+	}
+	// Check if the tile is walkable (assuming 0 is not walkable)
+	return m.dungeon[x][y] != 0
+}
+
+// IsWalkable checks if a map tile is walkable.
+func (m *Map) IsWalkableFloat(x, y float32) bool {
+	// Check boundaries first
+	if int(x) < 0 || int(x) >= helpers.MAP_WIDTH || int(y)/helpers.TILE_SIZE < 0 || int(y)/helpers.TILE_SIZE >= helpers.MAP_HEIGHT {
+		return false
+	}
+
+	// Check if the tile is walkable / by TILE_SIZE to get the tile position
+	return m.dungeon[int(x)/helpers.TILE_SIZE][int(y)/helpers.TILE_SIZE] != 0
 }

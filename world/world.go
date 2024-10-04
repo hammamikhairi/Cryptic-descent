@@ -1,7 +1,5 @@
 package world
 
-import rl "github.com/gen2brain/raylib-go/raylib"
-
 // World represents the game world
 type World struct {
 	Map *Map
@@ -25,7 +23,5 @@ func (w *World) SwitchMap() (float32, float32) {
 
 // Render draws the world elements on the screen
 func (w *World) Render() {
-	// Future: Render dungeon layout, background, etc.
-	rl.DrawText("Biwa Game", 10, 10, 20, rl.Gray)
 	w.Map.Render()
 }

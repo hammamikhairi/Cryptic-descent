@@ -5,6 +5,7 @@ import (
 	"crydes/effects"
 	"crydes/player"
 	"crydes/world"
+	"fmt"
 	"image/color"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -24,7 +25,7 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *
 
 	w := world.NewWorld() // Initialize the world (placeholder for now)
 	x, y := w.PlayerSpawn()
-	p := player.NewPlayer(x, y) // Initial player position
+	p := player.NewPlayer(x, y, w.Map) // Initial player position
 	return &Game{player: p, world: w, soundManager: soundManager, transition: transition}
 }
 
@@ -58,6 +59,9 @@ func (g *Game) Run(width, height int) {
 		rl.BeginMode2D(g.camera)
 		g.Render()
 		rl.EndMode2D()
+		rl.DrawText("Biwa Game", 10, 10, 20, rl.Black)
+		fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
+		rl.DrawText(fpsText, 10, 35, 20, rl.Black)
 
 		rl.EndDrawing()
 	}
