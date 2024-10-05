@@ -3,6 +3,7 @@ package core
 import (
 	"crydes/audio"
 	"crydes/effects"
+	"crydes/enemies"
 	"crydes/player"
 	"crydes/world"
 	"fmt"
@@ -17,6 +18,8 @@ type Game struct {
 	soundManager *audio.SoundManager // Reference to the sound manager
 	transition   *effects.Transition // Reference to the transition effect
 
+	enemies *enemies.EnemiesManager
+
 	camera rl.Camera2D
 }
 
@@ -26,7 +29,17 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *
 	w := world.NewWorld() // Initialize the world (placeholder for now)
 	x, y := w.PlayerSpawn()
 	p := player.NewPlayer(x, y, w.Map) // Initial player position
-	return &Game{player: p, world: w, soundManager: soundManager, transition: transition}
+
+	pX, pY := p.Position.X, p.Position.Y
+
+	return &Game{
+		player:       p,
+		world:        w,
+		soundManager: soundManager,
+		transition:   transition,
+		enemies:      enemies.NewEnemiesManager(pX, pY),
+	}
+
 }
 
 func (g *Game) Run(width, height int) {
@@ -75,6 +88,8 @@ func (g *Game) Update(deltaTime float32) {
 		g.player.Position = rl.NewVector2(x, y)
 	}
 
+	g.enemies.Update(deltaTime, g.player)
+
 	// g.teleportTimer.Update(deltaTime)
 	// g.transition.Update()
 
@@ -95,6 +110,7 @@ func (g *Game) Update(deltaTime float32) {
 
 func (g *Game) Render() {
 	g.world.Render()
+	g.enemies.Render()
 	g.player.Render() // Render player here
 	g.transition.Render()
 }

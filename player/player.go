@@ -13,8 +13,8 @@ type Player struct {
 	Position rl.Vector2
 	Speed    float32
 
-	CurrentAnim *Animation
-	Animations  map[string]*Animation
+	CurrentAnim *helpers.Animation
+	Animations  map[string]*helpers.Animation
 
 	Map   *wrld.Map
 	Sword *Sword
@@ -25,32 +25,24 @@ type Player struct {
 	LastDirection string
 }
 
-type Animation struct {
-	Frames       []rl.Texture2D
-	CurrentFrame int
-	FrameTime    float32
-	Timer        float32
-	ID           string
-}
-
 func NewPlayer(x, y float32, mp *wrld.Map) *Player {
-	idleRight := loadAnimation("IDLE_R",
+	idleRight := helpers.LoadAnimation("IDLE_R",
 		"assets/player/1.png",
 		"assets/player/2.png",
 		"assets/player/3.png",
 	)
-	moveRight := loadAnimation("MOV_R",
+	moveRight := helpers.LoadAnimation("MOV_R",
 		"assets/player/15.png",
 		"assets/player/16.png",
 		"assets/player/17.png",
 		"assets/player/18.png",
 	)
-	idleLeft := loadAnimation("IDLE_L",
+	idleLeft := helpers.LoadAnimation("IDLE_L",
 		"assets/player/8.png",
 		"assets/player/9.png",
 		"assets/player/10.png",
 	)
-	moveLeft := loadAnimation("MOV_L",
+	moveLeft := helpers.LoadAnimation("MOV_L",
 		"assets/player/22.png",
 		"assets/player/23.png",
 		"assets/player/24.png",
@@ -60,7 +52,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 	p := &Player{
 		Position: rl.NewVector2(x, y),
 		Speed:    200.0,
-		Animations: map[string]*Animation{
+		Animations: map[string]*helpers.Animation{
 			"idle_right": idleRight,
 			"move_right": moveRight,
 			"idle_left":  idleLeft,
@@ -79,29 +71,6 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 	go p.listenForDamage()
 
 	return p
-}
-
-func loadAnimation(id string, filePaths ...string) *Animation {
-
-	var textures []rl.Texture2D = []rl.Texture2D{}
-	for _, path := range filePaths {
-		texture := rl.LoadTexture(path)
-
-		if texture.ID == 0 {
-			rl.TraceLog(rl.LogError, "Failed to load texture: %s", path)
-			panic("Failed to load texture")
-		}
-
-		textures = append(textures, texture)
-	}
-
-	return &Animation{
-		Frames:       textures, // You can load multiple frames here if needed
-		FrameTime:    0.1,      // Adjust frame time for animation speed
-		Timer:        0,
-		CurrentFrame: 0,
-		ID:           id,
-	}
 }
 
 const MOV_SPEED = 0.006

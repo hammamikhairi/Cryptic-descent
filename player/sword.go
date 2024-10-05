@@ -1,12 +1,14 @@
 package player
 
 import (
+	helpers "crydes/helpers"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type Sword struct {
 	Position  rl.Vector2
-	Animation *Animation
+	Animation *helpers.Animation
 	Visible   bool
 	Direction string
 
@@ -38,7 +40,7 @@ func NewSword(offset rl.Vector2, direction string) *Sword {
 	}
 
 	// Create a simple idle sword animation with just one frame.
-	swordAnimation := &Animation{
+	swordAnimation := &helpers.Animation{
 		Frames:       frames,
 		FrameTime:    0.1, // Modify frame time if you have multiple frames.
 		CurrentFrame: 0,
