@@ -4,8 +4,10 @@ import (
 	"crydes/audio"
 	"crydes/effects"
 	"crydes/enemies"
+	"crydes/helpers"
 	"crydes/player"
 	"crydes/world"
+
 	"fmt"
 	"image/color"
 
@@ -26,18 +28,17 @@ type Game struct {
 // NewGame initializes a new game instance
 func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *Game {
 
-	w := world.NewWorld() // Initialize the world (placeholder for now)
-	x, y := w.PlayerSpawn()
-	p := player.NewPlayer(x, y, w.Map) // Initial player position
+	w := world.NewWorld()
 
-	pX, pY := p.Position.X, p.Position.Y
+	x, y := w.PlayerSpawn()
+	p := player.NewPlayer(x, y, w.Map)
 
 	return &Game{
 		player:       p,
 		world:        w,
 		soundManager: soundManager,
 		transition:   transition,
-		enemies:      enemies.NewEnemiesManager(pX, pY),
+		enemies:      enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan),
 	}
 
 }
@@ -60,6 +61,8 @@ func (g *Game) Run(width, height int) {
 
 		g.Update(deltaTime)
 
+		helpers.LogOnce(1, "HELLOOOO")
+
 		// Update camera target to follow the player
 		g.camera.Target = rl.Vector2{X: float32(g.player.Position.X), Y: float32(g.player.Position.Y)}
 
@@ -81,6 +84,7 @@ func (g *Game) Run(width, height int) {
 }
 
 func (g *Game) Update(deltaTime float32) {
+
 	g.player.Update(deltaTime)
 
 	if rl.IsKeyDown(rl.KeyR) {

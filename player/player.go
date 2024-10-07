@@ -21,6 +21,7 @@ type Player struct {
 
 	DamageChan     chan bool
 	IsTakingDamage bool
+	AttackChan     chan rl.Rectangle
 
 	LastDirection string
 }
@@ -48,15 +49,40 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		"assets/player/24.png",
 		"assets/player/25.png",
 	)
+	damageLeft := helpers.LoadAnimation("DAMAGE_R",
+		"assets/player/29.png",
+		"assets/player/30.png",
+		"assets/player/31.png",
+		"assets/player/32.png",
+		"assets/player/33.png",
+	)
+	damageRight := helpers.LoadAnimation("DAMAGE_L",
+		"assets/player/36.png",
+		"assets/player/37.png",
+		"assets/player/38.png",
+		"assets/player/39.png",
+		"assets/player/40.png",
+	)
+	die := helpers.LoadAnimation("DIE",
+		"assets/player/57.png",
+		"assets/player/58.png",
+		"assets/player/59.png",
+		"assets/player/60.png",
+		"assets/player/61.png",
+		"assets/player/62.png",
+	)
 
 	p := &Player{
 		Position: rl.NewVector2(x, y),
 		Speed:    200.0,
 		Animations: map[string]*helpers.Animation{
-			"idle_right": idleRight,
-			"move_right": moveRight,
-			"idle_left":  idleLeft,
-			"move_left":  moveLeft,
+			"idle_right":   idleRight,
+			"move_right":   moveRight,
+			"idle_left":    idleLeft,
+			"move_left":    moveLeft,
+			"damage_left":  damageLeft,
+			"damage_right": damageRight,
+			"die":          die,
 		},
 		CurrentAnim:   idleRight,
 		LastDirection: "right",
@@ -66,6 +92,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 			"right",
 		),
 		DamageChan: make(chan bool, 10),
+		AttackChan: make(chan rl.Rectangle, 10),
 	}
 
 	go p.listenForDamage()
@@ -90,18 +117,22 @@ func (p *Player) Update(refreshRate float32) {
 	//! TEMOPOARYYYYYYYYYYYYYYYYY
 
 	// Check for sword attack input.
-	if rl.IsKeyPressed(rl.KeyF) {
-		p.Sword.Visible = true
+	if rl.IsKeyPressed(rl.KeySpace) {
+		p.Attack()
 	}
 
-	// Check for sword attack input.
-	if rl.IsKeyPressed(rl.KeyF) {
-		p.Sword.Visible = true
+	// if mouse is pressed, attack
+	if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		p.Attack()
 	}
 
 	if p.Sword.Visible {
 		p.Sword.Update(refreshRate, p.GetPosition(), p.LastDirection)
 	}
+
+	// if p.IsTakingDamage {
+	// 	p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
+	// }
 
 	// Update the animation frames
 	p.UpdateAnimation(refreshRate)
@@ -208,7 +239,6 @@ func (p *Player) Render() {
 		drawColor = rl.White // Default color
 	}
 
-	// Render the player's current animation.
 	rl.DrawTextureEx(p.CurrentAnim.Frames[p.CurrentAnim.CurrentFrame], p.Position, 0, 0.5, drawColor)
 	p.Sword.Render()
 }
@@ -229,4 +259,14 @@ func (p *Player) listenForDamage() {
 			p.IsTakingDamage = false
 		}
 	}
+}
+
+func (p *Player) Attack() {
+	p.Sword.Visible = true
+	// p.Sword.ResetAttack()
+	area := p.Sword.GetSwordRect()
+
+	helpers.DEBUG("Player Attack", area)
+
+	p.AttackChan <- area
 }

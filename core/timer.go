@@ -2,7 +2,6 @@ package core
 
 import (
 	"math/rand"
-	"time"
 )
 
 // TeleportTimer manages the countdown until the next teleportation
@@ -17,7 +16,6 @@ type TeleportTimer struct {
 
 // NewTeleportTimer creates and initializes a new teleport timer
 func NewTeleportTimer(minTime, maxTime, tickFreq, tickAccel float32) *TeleportTimer {
-	rand.Seed(time.Now().UnixNano()) // Seed random number generator
 	initialTime := minTime + rand.Float32()*(maxTime-minTime)
 	return &TeleportTimer{
 		maxTime:           initialTime,

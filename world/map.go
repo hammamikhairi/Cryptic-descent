@@ -8,10 +8,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type Rectangle struct {
-	X, Y, Width, Height int32
-}
-
 type cornerType int
 
 const (
@@ -26,6 +22,16 @@ const (
 	innerCornerBL
 )
 
+type wallDirection int
+
+const (
+	noWall wallDirection = iota
+	wallTop
+	wallBottom
+	wallLeft
+	wallRight
+)
+
 type Textures struct {
 	floorTexture   rl.Texture2D
 	wallTexture    rl.Texture2D
@@ -35,7 +41,7 @@ type Textures struct {
 
 type Map struct {
 	dungeon [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int
-	rooms   []Rectangle
+	rooms   []helpers.Rectangle
 
 	Textures
 }
@@ -43,7 +49,7 @@ type Map struct {
 func NewMap() *Map {
 
 	m := &Map{
-		rooms:   []Rectangle{},
+		rooms:   []helpers.Rectangle{},
 		dungeon: [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int{},
 		Textures: Textures{
 			cornersTexture: make(map[string]rl.Texture2D),
@@ -71,9 +77,13 @@ func (m *Map) FirstRoomPosition() (float32, float32) {
 	return float32((m.rooms[0].X + m.rooms[0].Width/2) * helpers.TILE_SIZE), float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
 }
 
+func (m *Map) GetRooms() []helpers.Rectangle {
+	return m.rooms
+}
+
 func (m *Map) SwitchMap() (float32, float32) {
 	m.initDungeon()
-	m.rooms = []Rectangle{}
+	m.rooms = []helpers.Rectangle{}
 	m.generateDungeon()
 	return m.FirstRoomPosition()
 }
@@ -82,8 +92,8 @@ func (m *Map) SwitchMap() (float32, float32) {
 func (m *Map) generateDungeon() {
 
 	for len(m.rooms) < 3 {
-		m.rooms = []Rectangle{}
-		m.bspSplit(Rectangle{4, 4, helpers.MAP_WIDTH - 8, helpers.MAP_HEIGHT - 8}, 0)
+		m.rooms = []helpers.Rectangle{}
+		m.bspSplit(helpers.Rectangle{4, 4, helpers.MAP_WIDTH - 8, helpers.MAP_HEIGHT - 8}, 0)
 	}
 
 	for _, room := range m.rooms {
@@ -93,7 +103,7 @@ func (m *Map) generateDungeon() {
 }
 
 // Split the map into rooms using Binary Space Partitioning.
-func (m *Map) bspSplit(area Rectangle, depth int) {
+func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 	if depth >= helpers.MAX_DEPTH {
 		roomWidth := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
 		roomHeight := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
@@ -105,23 +115,23 @@ func (m *Map) bspSplit(area Rectangle, depth int) {
 		roomX := rand.Intn(int(area.Width)-roomWidth-2) + int(area.X) + 1
 		roomY := rand.Intn(int(area.Height)-roomHeight-2) + int(area.Y) + 1
 
-		m.rooms = append(m.rooms, Rectangle{int32(roomX), int32(roomY), int32(roomWidth), int32(roomHeight)})
+		m.rooms = append(m.rooms, helpers.Rectangle{int32(roomX), int32(roomY), int32(roomWidth), int32(roomHeight)})
 		return
 	}
 
 	if rand.Intn(2) == 0 && area.Width > helpers.MIN_ROOM_SIZE*2 {
 		split := rand.Intn(int(area.Width)/2) + int(area.Width/4)
-		m.bspSplit(Rectangle{area.X, area.Y, int32(split), area.Height}, depth+1)
-		m.bspSplit(Rectangle{area.X + int32(split), area.Y, area.Width - int32(split), area.Height}, depth+1)
+		m.bspSplit(helpers.Rectangle{area.X, area.Y, int32(split), area.Height}, depth+1)
+		m.bspSplit(helpers.Rectangle{area.X + int32(split), area.Y, area.Width - int32(split), area.Height}, depth+1)
 	} else if area.Height > helpers.MIN_ROOM_SIZE*2 {
 		split := rand.Intn(int(area.Height)/2) + int(area.Height/4)
-		m.bspSplit(Rectangle{area.X, area.Y, area.Width, int32(split)}, depth+1)
-		m.bspSplit(Rectangle{area.X, area.Y + int32(split), area.Width, area.Height - int32(split)}, depth+1)
+		m.bspSplit(helpers.Rectangle{area.X, area.Y, area.Width, int32(split)}, depth+1)
+		m.bspSplit(helpers.Rectangle{area.X, area.Y + int32(split), area.Width, area.Height - int32(split)}, depth+1)
 	}
 }
 
 // Carve out a room in the dungeon by setting its tiles to 1.
-func (m *Map) carveRoom(room Rectangle) {
+func (m *Map) carveRoom(room helpers.Rectangle) {
 	for x := room.X; x < room.X+room.Width; x++ {
 		for y := room.Y; y < room.Y+room.Height; y++ {
 			m.dungeon[x][y] = 1
@@ -291,16 +301,6 @@ func (m *Map) isDungeonCorner(x, y int) (bool, cornerType) {
 	// If none of the corner conditions are met, return false
 	return false, noCorner
 }
-
-type wallDirection int
-
-const (
-	noWall wallDirection = iota
-	wallTop
-	wallBottom
-	wallLeft
-	wallRight
-)
 
 func (m *Map) isDungeonWall(x, y int) (bool, wallDirection) {
 	// Ensure we're checking within valid dungeon bounds

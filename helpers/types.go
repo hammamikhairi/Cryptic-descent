@@ -9,3 +9,7 @@ type Animation struct {
 	Timer        float32
 	ID           string
 }
+
+type Rectangle struct {
+	X, Y, Width, Height int32
+}

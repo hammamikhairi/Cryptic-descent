@@ -13,6 +13,7 @@ type Sword struct {
 	Direction string
 
 	Offset rl.Vector2
+	Scale  float32
 }
 
 // NewSword creates a new sword instance with the given sprite.
@@ -54,6 +55,7 @@ func NewSword(offset rl.Vector2, direction string) *Sword {
 		Visible:   false,
 		Direction: direction, // This indicates whether the sprite is mirrored for the right direction.
 		Offset:    offset,
+		Scale:     0.5,
 	}
 }
 
@@ -81,11 +83,14 @@ func (s *Sword) Update(refreshRate float32, playerPos rl.Vector2, playerDirectio
 
 func (s *Sword) Render() {
 
+	// Draw a rectangle outline around the enemy after rendering the texture
+	// bounds := s.GetSwordRect()
+	// rl.DrawRectangleLines(int32(bounds.X), int32(bounds.Y), int32(bounds.Width), int32(bounds.Height), rl.Red)
+
 	if !s.Visible {
 		return
 	}
 
-	scale := float32(0.5)
 	rotation := float32(0)
 
 	if s.Direction == "right" {
@@ -93,11 +98,27 @@ func (s *Sword) Render() {
 		rotation = 180
 		// Adjust the position to compensate for the rotation
 		drawPosition := rl.Vector2{
-			X: s.Position.X + float32(s.Animation.Frames[s.Animation.CurrentFrame].Width)*scale,
-			Y: s.Position.Y + float32(s.Animation.Frames[s.Animation.CurrentFrame].Height)*scale,
+			X: s.Position.X + float32(s.Animation.Frames[s.Animation.CurrentFrame].Width)*s.Scale,
+			Y: s.Position.Y + float32(s.Animation.Frames[s.Animation.CurrentFrame].Height)*s.Scale,
 		}
-		rl.DrawTextureEx(s.Animation.Frames[s.Animation.CurrentFrame], drawPosition, rotation, scale, rl.White)
+		rl.DrawTextureEx(s.Animation.Frames[s.Animation.CurrentFrame], drawPosition, rotation, s.Scale, rl.White)
 	} else {
-		rl.DrawTextureEx(s.Animation.Frames[s.Animation.CurrentFrame], s.Position, rotation, scale, rl.White)
+		rl.DrawTextureEx(s.Animation.Frames[s.Animation.CurrentFrame], s.Position, rotation, s.Scale, rl.White)
 	}
+}
+
+func (s *Sword) GetSwordRect() rl.Rectangle {
+	width := float32(s.Animation.Frames[s.Animation.CurrentFrame].Width) * 0.5 * s.Scale
+	height := float32(s.Animation.Frames[s.Animation.CurrentFrame].Height) * s.Scale
+
+	if s.Direction == "right" {
+		return rl.NewRectangle(s.Position.X+width, s.Position.Y, width, height)
+	}
+
+	return rl.NewRectangle(s.Position.X, s.Position.Y, width, height)
+}
+
+func (s *Sword) ResetAttack() {
+	s.Visible = true
+	s.Animation.CurrentFrame = 0
 }

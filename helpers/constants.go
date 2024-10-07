@@ -17,6 +17,12 @@ const (
 	MAX_ROOM_SIZE = 12 // Maximum size for a room
 
 	DAMAGE_DURATION = time.Duration(0.1 * float32(time.Second))
+
+	ENEMIES_PLAYER_RANGE = 100
+	ENEMIES_MOV_SPEED    = 0.001
+	// ENEMIES_EPSILON                    = 0.001
+	ENEMIES_BOUNCE_BACK_DISTANCE       = 6
+	ENEMIES_DIRECTION_CHANGE_THRESHOLD = 5.0
 )
 
 var DAMAGE_COLOR rl.Color = rl.NewColor(255, 0, 0, 255) // red
