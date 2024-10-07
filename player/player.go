@@ -94,7 +94,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		),
 		DamageChan: make(chan bool, 10),
 		AttackChan: make(chan rl.Rectangle, 10),
-		Health:     3,
+		Health:     1000,
 	}
 
 	go p.listenForDamage()
@@ -133,8 +133,14 @@ func (p *Player) Update(refreshRate float32) {
 			p.TakeDamage()
 		}
 
-		if rl.IsKeyPressed(rl.KeySpace) || rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		if rl.IsKeyPressed(rl.KeySpace) {
 			p.Attack()
+		}
+
+		// change rotation of the player
+		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			mousePos := rl.GetMousePosition()
+			p.HandleMouseClick(mousePos)
 		}
 
 		//! TEMPORATRRARAR
@@ -330,4 +336,17 @@ func (p *Player) Attack() {
 
 func (p *Player) GameHasEnded() bool {
 	return p.State == "dying" && p.CurrentAnim.CurrentFrame == len(p.CurrentAnim.Frames)-1
+}
+
+func (p *Player) HandleMouseClick(mousePos rl.Vector2) {
+
+	mouseX, _ := mousePos.X, mousePos.Y
+
+	if mouseX > p.Position.X {
+		p.LastDirection = "right"
+	} else {
+		p.LastDirection = "left"
+	}
+
+	p.Attack()
 }
