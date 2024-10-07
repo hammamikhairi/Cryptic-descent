@@ -33,6 +33,16 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *
 	x, y := w.PlayerSpawn()
 	p := player.NewPlayer(x, y, w.Map)
 
+	w.NewProp(1, x+10, y+10, 0.7, rl.NewVector2(16, 16),
+		helpers.LoadAnimation(
+			"FIRE",
+			"assets/fireplace/1.png",
+			"assets/fireplace/2.png",
+			"assets/fireplace/3.png",
+			"assets/fireplace/4.png",
+		),
+		true)
+
 	return &Game{
 		player:       p,
 		world:        w,
@@ -84,6 +94,8 @@ func (g *Game) Run(width, height int) {
 }
 
 func (g *Game) Update(deltaTime float32) {
+
+	g.world.Update(deltaTime)
 
 	if g.player.GameHasEnded() {
 		// Game over
