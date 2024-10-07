@@ -1,8 +1,6 @@
 package player
 
 import (
-	"time"
-
 	helpers "crydes/helpers"
 	wrld "crydes/world"
 
@@ -12,6 +10,7 @@ import (
 type Player struct {
 	Position rl.Vector2
 	Speed    float32
+	Health   int
 
 	CurrentAnim *helpers.Animation
 	Animations  map[string]*helpers.Animation
@@ -24,6 +23,7 @@ type Player struct {
 	AttackChan     chan rl.Rectangle
 
 	LastDirection string
+	State         string // Add a state field to track the current state
 }
 
 func NewPlayer(x, y float32, mp *wrld.Map) *Player {
@@ -70,6 +70,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		"assets/player/60.png",
 		"assets/player/61.png",
 		"assets/player/62.png",
+		"assets/player/63.png",
 	)
 
 	p := &Player{
@@ -80,8 +81,8 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 			"move_right":   moveRight,
 			"idle_left":    idleLeft,
 			"move_left":    moveLeft,
-			"damage_left":  damageLeft,
-			"damage_right": damageRight,
+			"damage_right": damageLeft,
+			"damage_left":  damageRight,
 			"die":          die,
 		},
 		CurrentAnim:   idleRight,
@@ -93,6 +94,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		),
 		DamageChan: make(chan bool, 10),
 		AttackChan: make(chan rl.Rectangle, 10),
+		Health:     3,
 	}
 
 	go p.listenForDamage()
@@ -103,36 +105,52 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 const MOV_SPEED = 0.006
 
 func (p *Player) Update(refreshRate float32) {
-	moving := p.HandlePlayerMovement()
 
-	// Set the idle animation if the player is not moving
-	if !moving {
-		p.SetIdleAnimation()
+	if p.CheckHealth(); p.State == "dying" {
+		p.CurrentAnim = p.Animations["die"]
+		p.UpdateAnimation(refreshRate)
+		return
 	}
 
-	//! TEMOPOARYYYYYYYYYYYYYYYYY
-	if rl.IsKeyPressed(rl.KeyT) {
-		p.TakeDamage()
-	}
-	//! TEMOPOARYYYYYYYYYYYYYYYYY
+	switch p.State {
+	case "taking_damage":
+		// Let the damage animation play out; no other actions allowed.
+		p.HandlePlayerMovement()
 
-	// Check for sword attack input.
-	if rl.IsKeyPressed(rl.KeySpace) {
-		p.Attack()
+		p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
+	case "dying":
+		// Play the death animation, no other actions should be allowed.
+
+	default:
+		// Allow player to move and attack if not taking damage or dying.
+		moving := p.HandlePlayerMovement()
+
+		if !moving {
+			p.SetIdleAnimation()
+		}
+
+		if rl.IsKeyPressed(rl.KeyT) {
+			p.TakeDamage()
+		}
+
+		if rl.IsKeyPressed(rl.KeySpace) || rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			p.Attack()
+		}
+
+		//! TEMPORATRRARAR
+
+		if rl.IsKeyPressed(rl.KeyE) {
+			p.Die()
+		}
+
+		//! TEMPORATRRARAR
+
 	}
 
-	// if mouse is pressed, attack
-	if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
-		p.Attack()
-	}
-
+	// If the sword is visible, update its position
 	if p.Sword.Visible {
 		p.Sword.Update(refreshRate, p.GetPosition(), p.LastDirection)
 	}
-
-	// if p.IsTakingDamage {
-	// 	p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
-	// }
 
 	// Update the animation frames
 	p.UpdateAnimation(refreshRate)
@@ -217,9 +235,20 @@ func (p *Player) SetIdleAnimation() {
 // UpdateAnimation updates the current animation frame based on the refresh rate.
 func (p *Player) UpdateAnimation(refreshRate float32) {
 	p.CurrentAnim.Timer += refreshRate
+
+	if p.State == "dying" && p.CurrentAnim.CurrentFrame == len(p.CurrentAnim.Frames)-1 {
+		return
+	}
+
 	if p.CurrentAnim.Timer >= p.CurrentAnim.FrameTime {
 		p.CurrentAnim.CurrentFrame = (p.CurrentAnim.CurrentFrame + 1) % len(p.CurrentAnim.Frames)
 		p.CurrentAnim.Timer = 0
+
+		if p.State == "taking_damage" && p.CurrentAnim.CurrentFrame == len(p.CurrentAnim.Frames)-1 {
+			p.IsTakingDamage = false
+			p.State = "idle" // Reset the state to idle
+		}
+
 	}
 }
 
@@ -232,20 +261,23 @@ func (p *Player) ConvertToMapPosition() (int, int) {
 }
 
 func (p *Player) Render() {
-	var drawColor rl.Color
-	if p.IsTakingDamage {
-		drawColor = helpers.DAMAGE_COLOR
-	} else {
-		drawColor = rl.White // Default color
-	}
+	// Draw the current animation frame.
+	rl.DrawTextureEx(p.CurrentAnim.Frames[p.CurrentAnim.CurrentFrame], p.Position, 0, 0.5, rl.White)
 
-	rl.DrawTextureEx(p.CurrentAnim.Frames[p.CurrentAnim.CurrentFrame], p.Position, 0, 0.5, drawColor)
+	// Render the sword if visible.
 	p.Sword.Render()
 }
 
 // TakeDamage method to trigger the damage effect
 func (p *Player) TakeDamage() {
-	p.DamageChan <- true // Send a damage event to the channel
+	// If already taking damage or dying, ignore further damage.
+	if p.State == "taking_damage" || p.State == "dying" {
+		return
+	}
+
+	// Change the player's state to taking damage.
+	p.State = "taking_damage"
+	p.DamageChan <- true
 }
 
 // listenForDamage listens for damage events and handles them
@@ -253,12 +285,37 @@ func (p *Player) listenForDamage() {
 	for {
 		select {
 		case <-p.DamageChan:
+			// Set the damage animation and disable other actions.
+
+			p.Health--
+			helpers.DEBUG("Player Health", p.Health)
+
 			p.IsTakingDamage = true
-			// Wait for the duration of the damage effect
-			time.Sleep(helpers.DAMAGE_DURATION)
-			p.IsTakingDamage = false
+
+			// helpers.DEBUG("Player Taking Damage DIRECTION : ", p.LastDirection)
+			p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
+
+			// Wait for the duration of the damage animation to complete.
+			// time.Sleep(helpers.DAMAGE_DURATION)
+
+			// Reset to idle state if not dead.
+			// if p.State != "dying" {
+			// 	p.IsTakingDamage = false
+			// 	p.State = "idle" // Reset the state to idle
+			// }
 		}
 	}
+}
+
+func (p *Player) CheckHealth() {
+	if p.Health <= 0 {
+		p.Die()
+	}
+}
+
+func (p *Player) Die() {
+	// Set the state to dying and play the death animation.
+	p.State = "dying"
 }
 
 func (p *Player) Attack() {
@@ -269,4 +326,8 @@ func (p *Player) Attack() {
 	helpers.DEBUG("Player Attack", area)
 
 	p.AttackChan <- area
+}
+
+func (p *Player) GameHasEnded() bool {
+	return p.State == "dying" && p.CurrentAnim.CurrentFrame == len(p.CurrentAnim.Frames)-1
 }

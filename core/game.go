@@ -85,6 +85,11 @@ func (g *Game) Run(width, height int) {
 
 func (g *Game) Update(deltaTime float32) {
 
+	if g.player.GameHasEnded() {
+		// Game over
+		return
+	}
+
 	g.player.Update(deltaTime)
 
 	if rl.IsKeyDown(rl.KeyR) {
