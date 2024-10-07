@@ -84,8 +84,8 @@ func (s *Sword) Update(refreshRate float32, playerPos rl.Vector2, playerDirectio
 func (s *Sword) Render() {
 
 	// Draw a rectangle outline around the enemy after rendering the texture
-	// bounds := s.GetSwordRect()
-	// rl.DrawRectangleLines(int32(bounds.X), int32(bounds.Y), int32(bounds.Width), int32(bounds.Height), rl.Red)
+	bounds := s.GetSwordRect()
+	rl.DrawRectangleLines(int32(bounds.X), int32(bounds.Y), int32(bounds.Width), int32(bounds.Height), rl.Red)
 
 	if !s.Visible {
 		return

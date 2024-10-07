@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	rl.InitWindow(1000, 1000, "Gale Game with Raylib and Go")
+	rl.InitWindow(1000, 1000, "Cryptic Descent")
 	defer rl.CloseWindow()
 
 	soundManager := audio.NewSoundManager()

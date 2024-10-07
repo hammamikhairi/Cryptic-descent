@@ -85,7 +85,7 @@ func (g *Game) Run(width, height int) {
 		rl.BeginMode2D(g.camera)
 		g.Render()
 		rl.EndMode2D()
-		rl.DrawText("Biwa Game", 10, 10, 20, rl.Black)
+		rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Black)
 		fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
 		rl.DrawText(fpsText, 10, 35, 20, rl.Black)
 
