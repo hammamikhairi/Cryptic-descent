@@ -10,8 +10,8 @@ const (
 	SCREEN_WIDTH  = 800
 	SCREEN_HEIGHT = 800
 	TILE_SIZE     = 16 // Smaller tile size for a more compact map
-	MAP_WIDTH     = 80
-	MAP_HEIGHT    = 80
+	MAP_WIDTH     = 100
+	MAP_HEIGHT    = 100
 	MAX_DEPTH     = 5  // Number of divisions for the BSP tree
 	MIN_ROOM_SIZE = 5  // Minimum size for a room
 	MAX_ROOM_SIZE = 12 // Maximum size for a room
@@ -23,6 +23,14 @@ const (
 	// ENEMIES_EPSILON                    = 0.001
 	ENEMIES_BOUNCE_BACK_DISTANCE       = 6
 	ENEMIES_DIRECTION_CHANGE_THRESHOLD = 5.0
+
+	//LIGHTNING
+	DECAY_FACTOR = 4.75
+
+	CAM_ZOOM = 6.5
 )
+
+// var (
+// )
 
 var DAMAGE_COLOR rl.Color = rl.NewColor(255, 0, 0, 255) // red

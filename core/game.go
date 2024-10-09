@@ -14,6 +14,13 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+// ! FOR DEVELOPMENT
+const (
+	RENDER_LIGHTING = 1 << iota
+)
+
+//! END DEVELOPMENT
+
 type Game struct {
 	player    *player.Player
 	world     *world.World
@@ -26,6 +33,11 @@ type Game struct {
 
 	camera        rl.Camera2D
 	width, height int
+
+	// ! FOR DEVELOPMENT
+	flags int
+	//! END DEVELOPMENT
+
 }
 
 // NewGame initializes a new game instance
@@ -48,6 +60,24 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 	em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRooms())
 	em.SpawnEnemies()
 
+	rle := effects.NewRetroLightingEffect(
+		int32(helpers.MAP_WIDTH*helpers.TILE_SIZE), int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE), 50, 2, p,
+	)
+
+	rle.AddLightSource(
+		rl.Vector2{X: 100, Y: 100},
+		true,
+		50,
+		"static",
+	)
+
+	rle.AddLightSource(
+		rl.Vector2{X: w.Props[0].Position.X + float32(w.Props[0].CurrentAnim.Frames[0].Width/2)*0.7, Y: w.Props[0].Position.Y + float32(w.Props[0].CurrentAnim.Frames[0].Height/2)*0.7},
+		false,
+		20,
+		"pulse",
+	)
+
 	return &Game{
 		player:       p,
 		world:        w,
@@ -56,9 +86,8 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 		enemies:      em,
 		width:        width,
 		height:       height,
-		lightning: effects.NewRetroLightingEffect(
-			int32(helpers.MAP_WIDTH*helpers.TILE_SIZE), int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE), 50, 2, p,
-		),
+		lightning:    rle,
+		flags:        0,
 	}
 
 }
@@ -72,7 +101,7 @@ func (g *Game) Run() {
 		Offset:   rl.Vector2{X: float32(g.width) / 2, Y: float32(g.height) / 2},
 		Target:   rl.Vector2{X: float32(g.player.Position.X), Y: float32(g.player.Position.Y)},
 		Rotation: 0.0,
-		Zoom:     5.0,
+		Zoom:     4.5,
 	}
 
 	for !rl.WindowShouldClose() {
@@ -95,9 +124,10 @@ func (g *Game) Run() {
 		rl.BeginMode2D(g.camera)
 		g.Render()
 		rl.EndMode2D()
-		rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Black)
+		rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Gray)
 		fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
-		rl.DrawText(fpsText, 10, 35, 20, rl.Black)
+		rl.DrawText(fpsText, 10, 35, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("CAM ZOOM : %.3f", g.camera.Zoom), 10, 60, 20, rl.Gray)
 
 		rl.EndDrawing()
 	}
@@ -110,7 +140,7 @@ func (g *Game) Update(deltaTime float32) {
 	scrollY := rl.GetMouseWheelMove()
 
 	if scrollY != 0 {
-		g.camera.Zoom += float32(scrollY) * 0.1
+		g.camera.Zoom += float32(scrollY) * 0.2
 	}
 
 	if g.player.GameHasEnded() {
@@ -118,8 +148,7 @@ func (g *Game) Update(deltaTime float32) {
 		return
 	}
 
-	g.player.Update(deltaTime)
-
+	// ! FOR DEVELOPMENT
 	if rl.IsKeyDown(rl.KeyR) {
 		x, y := g.world.SwitchMap()
 		g.player.Position = rl.NewVector2(x, y)
@@ -127,7 +156,16 @@ func (g *Game) Update(deltaTime float32) {
 		g.enemies.ResetEnemies()
 	}
 
-	g.lightning.Update()
+	if rl.IsKeyDown(rl.KeyL) {
+		g.flags ^= RENDER_LIGHTING
+	}
+
+	if g.flags&RENDER_LIGHTING != 0 {
+		g.lightning.Update()
+	}
+	//! END DEVELOPMENT
+
+	g.player.Update(deltaTime)
 	g.enemies.Update(deltaTime, g.player)
 
 	// g.teleportTimer.Update(deltaTime)
@@ -153,5 +191,8 @@ func (g *Game) Render() {
 	g.enemies.Render()
 	g.player.Render() // Render player here
 	g.transition.Render()
-	g.lightning.Render()
+
+	if g.flags&RENDER_LIGHTING != 0 {
+		g.lightning.Render()
+	}
 }
