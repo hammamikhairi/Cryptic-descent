@@ -15,18 +15,21 @@ import (
 )
 
 type Game struct {
-	player       *player.Player
-	world        *world.World
+	player    *player.Player
+	world     *world.World
+	lightning *effects.RetroLightingEffect
+
 	soundManager *audio.SoundManager // Reference to the sound manager
 	transition   *effects.Transition // Reference to the transition effect
 
 	enemies *enemies.EnemiesManager
 
-	camera rl.Camera2D
+	camera        rl.Camera2D
+	width, height int
 }
 
 // NewGame initializes a new game instance
-func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *Game {
+func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, width, height int) *Game {
 
 	w := world.NewWorld()
 
@@ -35,7 +38,6 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *
 
 	w.NewProp(1, x+10, y+10, 0.7, rl.NewVector2(16, 16),
 		helpers.LoadAnimation(
-			"FIRE",
 			"assets/fireplace/1.png",
 			"assets/fireplace/2.png",
 			"assets/fireplace/3.png",
@@ -43,23 +45,31 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition) *
 		),
 		true)
 
+	em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRooms())
+	em.SpawnEnemies()
+
 	return &Game{
 		player:       p,
 		world:        w,
 		soundManager: soundManager,
 		transition:   transition,
-		enemies:      enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan),
+		enemies:      em,
+		width:        width,
+		height:       height,
+		lightning: effects.NewRetroLightingEffect(
+			int32(helpers.MAP_WIDTH*helpers.TILE_SIZE), int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE), 50, 2, p,
+		),
 	}
 
 }
 
-func (g *Game) Run(width, height int) {
+func (g *Game) Run() {
 	rl.SetTargetFPS(60)
 	previousTime := rl.GetTime()
 
 	// Initialize the camera with correct offset for centering
 	g.camera = rl.Camera2D{
-		Offset:   rl.Vector2{X: float32(width) / 2, Y: float32(height) / 2},
+		Offset:   rl.Vector2{X: float32(g.width) / 2, Y: float32(g.height) / 2},
 		Target:   rl.Vector2{X: float32(g.player.Position.X), Y: float32(g.player.Position.Y)},
 		Rotation: 0.0,
 		Zoom:     5.0,
@@ -97,6 +107,12 @@ func (g *Game) Update(deltaTime float32) {
 
 	g.world.Update(deltaTime)
 
+	scrollY := rl.GetMouseWheelMove()
+
+	if scrollY != 0 {
+		g.camera.Zoom += float32(scrollY) * 0.1
+	}
+
 	if g.player.GameHasEnded() {
 		// Game over
 		return
@@ -107,8 +123,11 @@ func (g *Game) Update(deltaTime float32) {
 	if rl.IsKeyDown(rl.KeyR) {
 		x, y := g.world.SwitchMap()
 		g.player.Position = rl.NewVector2(x, y)
+		g.enemies.Rooms = g.world.Map.GetRooms()
+		g.enemies.ResetEnemies()
 	}
 
+	g.lightning.Update()
 	g.enemies.Update(deltaTime, g.player)
 
 	// g.teleportTimer.Update(deltaTime)
@@ -134,4 +153,5 @@ func (g *Game) Render() {
 	g.enemies.Render()
 	g.player.Render() // Render player here
 	g.transition.Render()
+	g.lightning.Render()
 }

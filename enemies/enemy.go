@@ -24,6 +24,8 @@ type Enemy struct {
 	DamageChan     chan rl.Rectangle
 	IsTakingDamage bool
 	isDead         bool
+
+	CurrentRoom int
 }
 
 // Constructor for a new Enemy instance
@@ -35,6 +37,7 @@ func NewEnemy(
 	speed float32,
 	animations *map[string]*helpers.Animation,
 	health int,
+	CurrentRoom int,
 ) *Enemy {
 	e := &Enemy{
 		Position:      rl.NewVector2(x, y),
@@ -46,6 +49,7 @@ func NewEnemy(
 		LastDirection: "right",
 		DamageChan:    make(chan rl.Rectangle, 10),
 		Health:        health,
+		CurrentRoom:   CurrentRoom,
 	}
 
 	go e.ListenForDamage()
@@ -104,9 +108,14 @@ func (e *Enemy) Update(refreshRate float32, p *player.Player) {
 func (e *Enemy) MoveTowardsPlayer(refreshRate float32, p *player.Player) {
 	// Calculate distance to the player and adjust position
 	distance := helpers.GetDistance(e.Position, p.Position)
-	if distance < helpers.ENEMIES_PLAYER_RANGE {
+
+	if distance < helpers.ENEMIES_PLAYER_RANGE && (p.GetPlayerRoom() == e.CurrentRoom || e.CurrentRoom == -1) {
 		deltaX := p.Position.X - e.Position.X
 		deltaY := p.Position.Y - e.Position.Y
+
+		if e.CurrentRoom != -1 {
+			e.CurrentRoom = -1
+		}
 
 		moveX, moveY := e.CalculateMovement(deltaX, deltaY)
 

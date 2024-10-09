@@ -37,7 +37,7 @@ var LOGS map[int]bool = make(map[int]bool)
 
 func LogOnce(id int, msg string) {
 	if val, _ := LOGS[id]; !val {
-		fmt.Printf("[LOG 1] %s\n", msg)
+		fmt.Printf("[LOG %d] %s\n", id, msg)
 		LOGS[id] = true
 	}
 }
@@ -55,4 +55,23 @@ func CheckCollisionRecs(r1, r2 rl.Rectangle) bool {
 
 func DEBUG(tag string, msg any) {
 	fmt.Printf("[DEBUG] %s : %+v\n", tag, msg)
+}
+
+func (r1 *Rectangle) Intersects(r2 Rectangle) bool {
+	return r1.X < r2.X+r2.Width && r1.X+r1.Width > r2.X && r1.Y < r2.Y+r2.Height && r1.Y+r1.Height > r2.Y
+}
+
+func (r1 *Rectangle) GetRandomPosInRect() rl.Vector2 {
+	enemyPos := rl.NewVector2(TILE_SIZE*(float32(r1.X)+float32(rl.GetRandomValue(0, int32(r1.Width)))), TILE_SIZE*(float32(r1.Y)+float32(rl.GetRandomValue(0, int32(r1.Height)))))
+	return enemyPos
+}
+
+func (r1 *Rectangle) ContainsPoint(p rl.Vector2) bool {
+	// DEBUG("CHECKING POINT", p)
+	// DEBUG("RECTANGLE", r1)
+	return p.X >= float32(r1.X)*TILE_SIZE && p.X <= (float32(r1.X+r1.Width)*TILE_SIZE) && p.Y >= float32(r1.Y)*TILE_SIZE && p.Y <= float32(r1.Y+r1.Height)*TILE_SIZE
+}
+
+func GetRandomEnemyType() string {
+	return ENEMY_TYPES[int(rl.GetRandomValue(0, int32(len(ENEMY_TYPES)-1)))]
 }

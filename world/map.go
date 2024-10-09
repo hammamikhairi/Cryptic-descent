@@ -34,22 +34,34 @@ const (
 
 type Textures struct {
 	floorTexture   rl.Texture2D
-	wallTexture    rl.Texture2D
 	cornersTexture map[string]rl.Texture2D
 	wallTextures   map[string]rl.Texture2D
 }
 
 type Map struct {
 	dungeon [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int
-	rooms   []helpers.Rectangle
+	rooms   []Room
+	// corridors [][]rl.Vector2
 
 	Textures
 }
 
-func NewMap() *Map {
+type RoomSize int
 
+const (
+	SmallRoom RoomSize = iota
+	MediumRoom
+	LargeRoom
+)
+
+type Room struct {
+	helpers.Rectangle
+	Size RoomSize
+}
+
+func NewMap() *Map {
 	m := &Map{
-		rooms:   []helpers.Rectangle{},
+		rooms:   []Room{},
 		dungeon: [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int{},
 		Textures: Textures{
 			cornersTexture: make(map[string]rl.Texture2D),
@@ -58,7 +70,6 @@ func NewMap() *Map {
 	}
 
 	m.loadTextures()
-	m.initDungeon()
 	m.generateDungeon()
 
 	return m
@@ -74,48 +85,76 @@ func (m *Map) initDungeon() {
 }
 
 func (m *Map) FirstRoomPosition() (float32, float32) {
-	return float32((m.rooms[0].X + m.rooms[0].Width/2) * helpers.TILE_SIZE), float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
+	return float32((m.rooms[0].X + m.rooms[0].Width/2) * helpers.TILE_SIZE),
+		float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
 }
 
 func (m *Map) GetRooms() []helpers.Rectangle {
-	return m.rooms
+	rectangles := make([]helpers.Rectangle, len(m.rooms))
+	for i, room := range m.rooms {
+		rectangles[i] = room.Rectangle
+	}
+	return rectangles
 }
 
 func (m *Map) SwitchMap() (float32, float32) {
 	m.initDungeon()
-	m.rooms = []helpers.Rectangle{}
+	m.rooms = []Room{}
 	m.generateDungeon()
 	return m.FirstRoomPosition()
 }
 
 // Generate the dungeon using BSP.
 func (m *Map) generateDungeon() {
-
+	m.initDungeon()
 	for len(m.rooms) < 3 {
-		m.rooms = []helpers.Rectangle{}
-		m.bspSplit(helpers.Rectangle{4, 4, helpers.MAP_WIDTH - 8, helpers.MAP_HEIGHT - 8}, 0)
+		m.rooms = []Room{}
+		m.bspSplit(helpers.Rectangle{X: 4, Y: 4, Width: helpers.MAP_WIDTH - 8, Height: helpers.MAP_HEIGHT - 8}, 0)
 	}
 
 	for _, room := range m.rooms {
-		m.carveRoom(room)
+		m.carveRoom(room.Rectangle)
 	}
 	m.connectRooms()
+}
+
+func (m *Map) GetRoomsBySize(size RoomSize) []Room {
+	var result []Room
+	for _, room := range m.rooms {
+		if room.Size == size {
+			result = append(result, room)
+		}
+	}
+	return result
 }
 
 // Split the map into rooms using Binary Space Partitioning.
 func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 	if depth >= helpers.MAX_DEPTH {
-		roomWidth := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
-		roomHeight := rand.Intn(helpers.MAX_ROOM_SIZE-helpers.MIN_ROOM_SIZE+1) + helpers.MIN_ROOM_SIZE
+		roomSize := m.chooseRoomSize(depth)
+		roomWidth, roomHeight := m.getRoomDimensions(roomSize)
 
-		if int(area.Width)-roomWidth < 3 || int(area.Height)-roomHeight < 3 {
+		if int(area.Width)-int(roomWidth) < 3 || int(area.Height)-int(roomHeight) < 3 {
 			return
 		}
 
-		roomX := rand.Intn(int(area.Width)-roomWidth-2) + int(area.X) + 1
-		roomY := rand.Intn(int(area.Height)-roomHeight-2) + int(area.Y) + 1
+		maxAttempts := 100
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			roomX := rand.Intn(int(area.Width)-int(roomWidth)-2) + int(area.X) + 1
+			roomY := rand.Intn(int(area.Height)-int(roomHeight)-2) + int(area.Y) + 1
 
-		m.rooms = append(m.rooms, helpers.Rectangle{int32(roomX), int32(roomY), int32(roomWidth), int32(roomHeight)})
+			newRoom := Room{
+				Rectangle: helpers.Rectangle{X: int32(roomX), Y: int32(roomY), Width: roomWidth, Height: roomHeight},
+				Size:      roomSize,
+			}
+
+			if m.isValidRoomPlacement(newRoom.Rectangle) {
+				m.rooms = append(m.rooms, newRoom)
+				return
+			}
+		}
+
+		helpers.DEBUG("Failed to generate a valid room after maximum attempts", "")
 		return
 	}
 
@@ -130,6 +169,40 @@ func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 	}
 }
 
+func (m *Map) chooseRoomSize(depth int) RoomSize {
+	if depth > 5 {
+		return RoomSize(rand.Intn(3))
+	}
+	if rand.Float32() < 0.7 {
+		return SmallRoom
+	}
+	return MediumRoom
+}
+
+func (m *Map) getRoomDimensions(size RoomSize) (width, height int32) {
+	switch size {
+	case SmallRoom:
+		width = int32(rand.Intn(3) + 3)  // 3-5
+		height = int32(rand.Intn(3) + 3) // 3-5
+	case MediumRoom:
+		width = int32(rand.Intn(3) + 6)  // 6-8
+		height = int32(rand.Intn(3) + 6) // 6-8
+	case LargeRoom:
+		width = int32(rand.Intn(5) + 9)  // 9-13
+		height = int32(rand.Intn(5) + 9) // 9-13
+	}
+	return
+}
+
+func (m *Map) isValidRoomPlacement(newRoom helpers.Rectangle) bool {
+	for _, room := range m.rooms {
+		if room.Intersects(newRoom) {
+			return false
+		}
+	}
+	return true
+}
+
 // Carve out a room in the dungeon by setting its tiles to 1.
 func (m *Map) carveRoom(room helpers.Rectangle) {
 	for x := room.X; x < room.X+room.Width; x++ {
@@ -142,8 +215,8 @@ func (m *Map) carveRoom(room helpers.Rectangle) {
 // Connect rooms with corridors.
 func (m *Map) connectRooms() {
 	for i := 1; i < len(m.rooms); i++ {
-		prevRoom := m.rooms[i-1]
-		currRoom := m.rooms[i]
+		prevRoom := m.rooms[i-1].Rectangle
+		currRoom := m.rooms[i].Rectangle
 
 		prevCenterX := prevRoom.X + prevRoom.Width/2
 		prevCenterY := prevRoom.Y + prevRoom.Height/2
@@ -344,11 +417,17 @@ func (m *Map) IsWalkable(x, y int) bool {
 
 // IsWalkable checks if a map tile is walkable.
 func (m *Map) IsWalkableFloat(x, y float32) bool {
-	// Check boundaries first
-	if int(x) < 0 || int(x) >= helpers.MAP_WIDTH || int(y)/helpers.TILE_SIZE < 0 || int(y)/helpers.TILE_SIZE >= helpers.MAP_HEIGHT {
-		return false
+	tileX, tileY := int(x)/helpers.TILE_SIZE, int(y)/helpers.TILE_SIZE
+	return m.IsWalkable(tileX, tileY)
+}
+
+func (m *Map) CurrentRoomIndex(p rl.Vector2) int {
+
+	for i, room := range m.rooms {
+		if room.ContainsPoint(p) {
+			return i
+		}
 	}
 
-	// Check if the tile is walkable / by TILE_SIZE to get the tile position
-	return m.dungeon[int(x)/helpers.TILE_SIZE][int(y)/helpers.TILE_SIZE] != 0
+	return -1
 }

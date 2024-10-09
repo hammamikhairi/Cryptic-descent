@@ -1,9 +1,6 @@
 package enemies
 
 import (
-	"math/rand"
-	"time"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"crydes/helpers"
@@ -15,34 +12,36 @@ type EnemiesManager struct {
 	Enemies    []*Enemy
 	Animations map[string]*map[string]*helpers.Animation
 
-	Map *world.Map
+	Map   *world.Map
+	Rooms []helpers.Rectangle
 
 	inComingDamage chan rl.Rectangle
 }
 
-func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.Rectangle) *EnemiesManager {
+func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.Rectangle, rooms []helpers.Rectangle) *EnemiesManager {
 	manager := &EnemiesManager{
 		Enemies:        []*Enemy{},
 		Animations:     map[string]*map[string]*helpers.Animation{},
 		Map:            mp,
 		inComingDamage: playerAttackChan,
+		Rooms:          rooms,
 	}
 
 	manager.LoadAnimations()
 
-	manager.Enemies = append(
-		manager.Enemies,
-		NewEnemy(1, pX+20, pY+20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["spider"], 3),
-		NewEnemy(1, pX-20, pY-20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["skeleton"], 3),
-		NewEnemy(1, pX-20, pY+20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["skeleton"], 3),
-	)
+	// manager.Enemies = append(
+	// 	manager.Enemies,
+	// 	// NewEnemy(1, pX+20, pY+20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["spider"], 3),
+	// 	// NewEnemy(1, pX-20, pY-20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["skeleton"], 3),
+	// 	// NewEnemy(1, pX-20, pY+20, 0.5, rl.NewVector2(16, 16), 200, manager.Animations["skeleton"], 3),
+	// )
 
 	go manager.ListenForDamage()
 
 	return manager
 }
 
-var lastSpawnTime time.Time
+// var lastSpawnTime time.Time
 
 func (em *EnemiesManager) Update(refreshRate float32, p *player.Player) {
 	for _, e := range em.Enemies {
@@ -62,13 +61,40 @@ func (em *EnemiesManager) Update(refreshRate float32, p *player.Player) {
 	// }
 
 	// spawn enemies every 5 seconds
-	if time.Since(lastSpawnTime) > time.Second*5 {
-		lastSpawnTime = time.Now()
-		em.Enemies = append(
-			em.Enemies,
-			NewEnemy(1, p.Position.X+float32(rand.Intn(100)), p.Position.Y+float32(rand.Intn(100)), 0.5, rl.NewVector2(16, 16), 200, em.Animations["goblin"], 3))
-	}
+	// if time.Since(lastSpawnTime) > time.Second*5 {
+	// 	lastSpawnTime = time.Now()
+	// 	em.Enemies = append(
+	// 		em.Enemies,
+	// 		NewEnemy(1, p.Position.X+float32(rand.Intn(100)), p.Position.Y+float32(rand.Intn(100)), 0.5, rl.NewVector2(16, 16), 200, em.Animations["goblin"], 3))
+	// }
+}
 
+func (em *EnemiesManager) ResetEnemies() {
+	em.Enemies = []*Enemy{}
+	em.SpawnEnemies()
+}
+
+func (em *EnemiesManager) SpawnEnemies() {
+	for i, room := range em.Rooms {
+		if i == 0 {
+			continue
+		}
+
+		helpers.DEBUG("SPAWNING ENEMIES INTO", room)
+		for j := 0; j < 3; j++ {
+
+			ePos := room.GetRandomPosInRect()
+			eType := helpers.GetRandomEnemyType()
+
+			em.Enemies = append(
+				em.Enemies,
+				NewEnemy(1, ePos.X, ePos.Y, 0.5, rl.NewVector2(16, 16), 200, em.Animations[eType], 3, i))
+		}
+	}
+}
+
+func (em *EnemiesManager) AddEnemy(e *Enemy) {
+	em.Enemies = append(em.Enemies, e)
 }
 
 func (em *EnemiesManager) Render() {

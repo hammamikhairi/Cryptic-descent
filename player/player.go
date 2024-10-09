@@ -11,6 +11,7 @@ type Player struct {
 	Position rl.Vector2
 	Speed    float32
 	Health   int
+	Scale    float32
 
 	CurrentAnim *helpers.Animation
 	Animations  map[string]*helpers.Animation
@@ -95,6 +96,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		DamageChan: make(chan bool, 10),
 		AttackChan: make(chan rl.Rectangle, 10),
 		Health:     1000,
+		Scale:      0.5,
 	}
 
 	go p.listenForDamage()
@@ -118,6 +120,17 @@ func (p *Player) Update(refreshRate float32) {
 		p.HandlePlayerMovement()
 
 		p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
+
+		if rl.IsKeyPressed(rl.KeySpace) {
+			p.Attack()
+		}
+
+		// change rotation of the player
+		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			mousePos := rl.GetMousePosition()
+			p.HandleMouseClick(mousePos)
+		}
+
 	case "dying":
 		// Play the death animation, no other actions should be allowed.
 
@@ -127,10 +140,6 @@ func (p *Player) Update(refreshRate float32) {
 
 		if !moving {
 			p.SetIdleAnimation()
-		}
-
-		if rl.IsKeyPressed(rl.KeyT) {
-			p.TakeDamage()
 		}
 
 		if rl.IsKeyPressed(rl.KeySpace) {
@@ -268,7 +277,7 @@ func (p *Player) ConvertToMapPosition() (int, int) {
 
 func (p *Player) Render() {
 	// Draw the current animation frame.
-	rl.DrawTextureEx(p.CurrentAnim.Frames[p.CurrentAnim.CurrentFrame], p.Position, 0, 0.5, rl.White)
+	rl.DrawTextureEx(p.CurrentAnim.Frames[p.CurrentAnim.CurrentFrame], p.Position, 0, p.Scale, rl.White)
 
 	// Render the sword if visible.
 	p.Sword.Render()
@@ -349,4 +358,15 @@ func (p *Player) HandleMouseClick(mousePos rl.Vector2) {
 	}
 
 	p.Attack()
+}
+
+func (p *Player) GetPlayerRoom() int {
+	return p.Map.CurrentRoomIndex(p.Position)
+}
+
+func (p *Player) GetPlayerCenterPoint() rl.Vector2 {
+	return rl.NewVector2(
+		p.Position.X+float32(p.CurrentAnim.Frames[0].Width/2)*p.Scale,
+		p.Position.Y+float32(p.CurrentAnim.Frames[0].Width/2)*p.Scale,
+	)
 }
