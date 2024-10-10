@@ -8,14 +8,17 @@ import (
 
 // World represents the game world
 type World struct {
-	Map   *Map
-	Props []*Prop
+	Map        *Map
+	Props      []*Prop
+	Pathfinder *Pathfinder
 }
 
 // NewWorld creates a new world instance
 func NewWorld() *World {
+	mp := NewMap()
 	return &World{
-		Map: NewMap(),
+		Map:        mp,
+		Pathfinder: NewPathfinder(mp),
 	}
 }
 
@@ -40,6 +43,9 @@ func (w *World) Render() {
 	for _, p := range w.Props {
 		p.Render()
 	}
+	// w.Pathfinder.Render(
+	// 	currentRoomIndex,
+	// )
 }
 
 func (w *World) NewProp(id int, x, y float32, scale float32, size rl.Vector2, animations *helpers.Animation, isAnimated bool) {
