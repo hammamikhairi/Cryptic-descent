@@ -38,9 +38,10 @@ type Textures struct {
 	wallTextures   map[string]rl.Texture2D
 }
 
+// 0 means not walkable, 1 means walkable
 type Map struct {
 	dungeon [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int
-	rooms   []Room
+	rooms   []*Room
 	// corridors [][]rl.Vector2
 
 	Textures
@@ -61,7 +62,7 @@ type Room struct {
 
 func NewMap() *Map {
 	m := &Map{
-		rooms:   []Room{},
+		rooms:   []*Room{},
 		dungeon: [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int{},
 		Textures: Textures{
 			cornersTexture: make(map[string]rl.Texture2D),
@@ -99,7 +100,7 @@ func (m *Map) GetRooms() []helpers.Rectangle {
 
 func (m *Map) SwitchMap() (float32, float32) {
 	m.initDungeon()
-	m.rooms = []Room{}
+	m.rooms = []*Room{}
 	m.generateDungeon()
 	return m.FirstRoomPosition()
 }
@@ -108,7 +109,7 @@ func (m *Map) SwitchMap() (float32, float32) {
 func (m *Map) generateDungeon() {
 	m.initDungeon()
 	for len(m.rooms) < 3 {
-		m.rooms = []Room{}
+		m.rooms = []*Room{}
 		m.bspSplit(helpers.Rectangle{X: 4, Y: 4, Width: helpers.MAP_WIDTH - 8, Height: helpers.MAP_HEIGHT - 8}, 0)
 	}
 
@@ -122,7 +123,7 @@ func (m *Map) GetRoomsBySize(size RoomSize) []Room {
 	var result []Room
 	for _, room := range m.rooms {
 		if room.Size == size {
-			result = append(result, room)
+			result = append(result, *room)
 		}
 	}
 	return result
@@ -149,7 +150,7 @@ func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 			}
 
 			if m.isValidRoomPlacement(newRoom.Rectangle) {
-				m.rooms = append(m.rooms, newRoom)
+				m.rooms = append(m.rooms, &newRoom)
 				return
 			}
 		}
@@ -182,15 +183,19 @@ func (m *Map) chooseRoomSize(depth int) RoomSize {
 func (m *Map) getRoomDimensions(size RoomSize) (width, height int32) {
 	switch size {
 	case SmallRoom:
-		width = int32(rand.Intn(3) + 3)  // 3-5
-		height = int32(rand.Intn(3) + 3) // 3-5
+		width = int32(rand.Intn(4) + 3)  // 3-5
+		height = int32(rand.Intn(4) + 3) // 3-5
 	case MediumRoom:
-		width = int32(rand.Intn(3) + 6)  // 6-8
-		height = int32(rand.Intn(3) + 6) // 6-8
+		width = int32(rand.Intn(4) + 6)  // 6-8
+		height = int32(rand.Intn(4) + 6) // 6-8
 	case LargeRoom:
-		width = int32(rand.Intn(5) + 9)  // 9-13
-		height = int32(rand.Intn(5) + 9) // 9-13
+		width = int32(rand.Intn(7) + 9)  // 9-13
+		height = int32(rand.Intn(7) + 9) // 9-13
 	}
+
+	width += 3
+	height += 3
+
 	return
 }
 
@@ -215,8 +220,8 @@ func (m *Map) carveRoom(room helpers.Rectangle) {
 // Connect rooms with corridors.
 func (m *Map) connectRooms() {
 	for i := 1; i < len(m.rooms); i++ {
-		prevRoom := m.rooms[i-1].Rectangle
-		currRoom := m.rooms[i].Rectangle
+		prevRoom := m.rooms[i-1]
+		currRoom := m.rooms[i]
 
 		prevCenterX := prevRoom.X + prevRoom.Width/2
 		prevCenterY := prevRoom.Y + prevRoom.Height/2
@@ -299,20 +304,20 @@ func (m *Map) Render() {
 func (m *Map) loadTextures() {
 	m.floorTexture = rl.LoadTexture("assets/ground/88.png")
 
-	m.cornersTexture["BR"] = rl.LoadTexture("assets/walls/16.png")
-	m.cornersTexture["TL"] = rl.LoadTexture("assets/walls/14.png")
-	m.cornersTexture["TR"] = rl.LoadTexture("assets/walls/1.png")
-	m.cornersTexture["BL"] = rl.LoadTexture("assets/walls/9.png")
+	m.cornersTexture["BR"] = rl.LoadTexture("assets/walls/6.png")
+	m.cornersTexture["TL"] = rl.LoadTexture("assets/walls/8.png")
+	m.cornersTexture["TR"] = rl.LoadTexture("assets/walls/11.png")
+	m.cornersTexture["BL"] = rl.LoadTexture("assets/walls/3.png")
 
 	m.cornersTexture["BRI"] = rl.LoadTexture("assets/walls/16inner.png")
 	m.cornersTexture["TLI"] = rl.LoadTexture("assets/walls/14inner.png")
 	m.cornersTexture["TRI"] = rl.LoadTexture("assets/walls/1inner.png")
 	m.cornersTexture["BLI"] = rl.LoadTexture("assets/walls/9inner.png")
 
-	m.wallTextures["T"] = rl.LoadTexture("assets/walls/4.png")
-	m.wallTextures["B"] = rl.LoadTexture("assets/walls/10.png")
-	m.wallTextures["L"] = rl.LoadTexture("assets/walls/12.png")
-	m.wallTextures["R"] = rl.LoadTexture("assets/walls/2.png")
+	m.wallTextures["B"] = rl.LoadTexture("assets/walls/4.png")
+	m.wallTextures["T"] = rl.LoadTexture("assets/walls/10.png")
+	m.wallTextures["R"] = rl.LoadTexture("assets/walls/12.png")
+	m.wallTextures["L"] = rl.LoadTexture("assets/walls/2.png")
 }
 
 // Unload textures to free up memory.
@@ -324,10 +329,6 @@ func (m *Map) unloadTextures() {
 	for _, tex := range m.wallTextures {
 		rl.UnloadTexture(tex)
 	}
-}
-
-type Player struct {
-	X, Y float32
 }
 
 func (m *Map) isDungeonCorner(x, y int) (bool, cornerType) {

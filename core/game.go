@@ -9,7 +9,6 @@ import (
 	"crydes/world"
 
 	"fmt"
-	"image/color"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -119,7 +118,7 @@ func (g *Game) Run() {
 		g.camera.Offset = rl.Vector2{X: float32(rl.GetScreenWidth()) / 2, Y: float32(rl.GetScreenHeight()) / 2}
 
 		rl.BeginDrawing()
-		rl.ClearBackground(color.RGBA{88, 68, 34, 255}) // rgb(88, 68, 34)
+		rl.ClearBackground(helpers.VOID_COLOR) // rgb(88, 68, 34)
 
 		rl.BeginMode2D(g.camera)
 		g.Render()
@@ -167,6 +166,15 @@ func (g *Game) Update(deltaTime float32) {
 
 	g.player.Update(deltaTime)
 	g.enemies.Update(deltaTime, g.player)
+
+	// PATH FINDING
+	// helpers.DEBUG("PLAYER POS", g.player.Position)
+	// g.world.Pathfinder.Update(
+	// 	int(g.player.Position.X/helpers.TILE_SIZE),
+	// 	int(g.player.Position.Y/helpers.TILE_SIZE),
+	// 	int(g.world.Map.GetRooms()[len(g.world.Map.GetRooms())-1].X),
+	// 	int(g.world.Map.GetRooms()[len(g.world.Map.GetRooms())-1].Y),
+	// )
 
 	// g.teleportTimer.Update(deltaTime)
 	// g.transition.Update()
