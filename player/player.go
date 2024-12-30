@@ -95,7 +95,7 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		),
 		DamageChan: make(chan bool, 10),
 		AttackChan: make(chan rl.Rectangle, 10),
-		Health:     1000,
+		Health:     5,
 		Scale:      0.5,
 	}
 
@@ -126,10 +126,12 @@ func (p *Player) Update(refreshRate float32) {
 		}
 
 		// change rotation of the player
-		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
-			mousePos := rl.GetMousePosition()
-			p.HandleMouseClick(mousePos)
-		}
+		// if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		// 	mousePos := rl.GetMousePosition()
+		// 	helpers.DEBUG("Mouse Click", mousePos)
+		// 	helpers.DEBUG("Player Position", p.Position)
+		// 	p.HandleMouseClick(mousePos)
+		// }
 
 	case "dying":
 		// Play the death animation, no other actions should be allowed.
@@ -147,10 +149,12 @@ func (p *Player) Update(refreshRate float32) {
 		}
 
 		// change rotation of the player
-		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
-			mousePos := rl.GetMousePosition()
-			p.HandleMouseClick(mousePos)
-		}
+		// if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		// 	mousePos := rl.GetMousePosition()
+		// 	helpers.DEBUG("Mouse Click", mousePos)
+		// 	helpers.DEBUG("Player Position", p.Position)
+		// 	p.HandleMouseClick(mousePos)
+		// }
 
 		//! TEMPORATRRARAR
 

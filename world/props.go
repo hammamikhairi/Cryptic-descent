@@ -7,9 +7,15 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+type PropsManager struct {
+	rooms *[]*Room
+	props []*Prop
+}
+
 // Prop represents an interactive or static item in the game.
 type Prop struct {
 	ID          int                // Unique identifier for the prop
+	Type        string             // Type of the prop (e.g., "chest", "door", "key")
 	Position    rl.Vector2         // Position of the prop
 	Size        rl.Vector2         // Size of the prop for collision detection
 	Scale       float32            // Scale for rendering
@@ -18,6 +24,7 @@ type Prop struct {
 	Animation   *helpers.Animation // Map of animations
 	IsAnimated  bool               // Flag indicating if the prop is animated
 	Color       rl.Color           // Base color for the prop (e.g., for shading effects)
+	LTRadius    float32            // Light radius for light sources
 
 	// Optional properties to control prop behavior.
 	Rotation float32 // Rotation in degrees
@@ -25,13 +32,71 @@ type Prop struct {
 	Friction float32 // Friction to apply when interacting with other objects
 }
 
+func newPropsManager(rooms *[]*Room) *PropsManager {
+	return &PropsManager{
+		rooms: rooms,
+		props: []*Prop{},
+	}
+}
+
+func (pm *PropsManager) SetUpProps() {
+
+	// for _, room := range *pm.rooms {
+
+	// register light props
+	// lightPos := room.GetLightPositions()
+	// scale, radius := room.ProperRoomLightning()
+	// for _, pos := range lightPos {
+	// 	pm.props = append(
+	// 		pm.props,
+	// 		NewProp(
+	// 			1,
+	// 			"fire",
+	// 			pos.X,
+	// 			pos.Y,
+	// 			scale,
+	// 			radius,
+	// 			rl.NewVector2(16, 16),
+	// 			helpers.LoadAnimation(
+	// 				"assets/fireplace/1.png",
+	// 				"assets/fireplace/2.png",
+	// 				"assets/fireplace/3.png",
+	// 				"assets/fireplace/4.png",
+	// 			),
+	// 			true,
+	// 		),
+	// 	)
+	// }
+
+	// }
+
+}
+
+func (pm *PropsManager) Update(refreshRate float32) {
+	for _, prop := range pm.props {
+		prop.Update(refreshRate)
+	}
+}
+
+func (pm *PropsManager) Render() {
+	for _, prop := range pm.props {
+		prop.Render()
+	}
+}
+
+func (pm *PropsManager) GetProps() *[]*Prop {
+	return &pm.props
+}
+
 // NewProp initializes and returns a new Prop instance.
-func NewProp(id int, x, y float32, scale float32, size rl.Vector2, animations *helpers.Animation, isAnimated bool) *Prop {
+func NewProp(id int, tp string, x, y float32, scale, radius float32, size rl.Vector2, animations *helpers.Animation, isAnimated bool) *Prop {
 	return &Prop{
 		ID:          id,
+		Type:        tp,
 		Position:    rl.NewVector2(x, y),
 		Size:        size,
 		Scale:       scale,
+		LTRadius:    radius,
 		Visible:     true,
 		IsAnimated:  isAnimated,
 		Animation:   animations,
@@ -48,12 +113,6 @@ func (p *Prop) Update(refreshRate float32) {
 	if !p.Visible {
 		return
 	}
-
-	// If animated, update animation frames
-
-	// helpers.DEBUG("Updating prop %d", p.ID)
-	// helpers.DEBUG("IsAnimated: %t", p.IsAnimated)
-	// helpers.DEBUG("CurrentAnim: %v", p.CurrentAnim)
 
 	if p.IsAnimated && p.CurrentAnim != nil {
 		// helpers.DEBUG("====Updating animation for prop %d", p.ID)

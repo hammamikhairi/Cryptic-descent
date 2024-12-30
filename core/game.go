@@ -7,6 +7,7 @@ import (
 	"crydes/helpers"
 	"crydes/player"
 	"crydes/world"
+	"time"
 
 	"fmt"
 
@@ -45,37 +46,17 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 	w := world.NewWorld()
 
 	x, y := w.PlayerSpawn()
+	// x, y := w.Map.GetRandomRoomCenterBySize(1)
 	p := player.NewPlayer(x, y, w.Map)
 
-	w.NewProp(1, x+10, y+10, 0.7, rl.NewVector2(16, 16),
-		helpers.LoadAnimation(
-			"assets/fireplace/1.png",
-			"assets/fireplace/2.png",
-			"assets/fireplace/3.png",
-			"assets/fireplace/4.png",
-		),
-		true)
-
-	em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRooms())
+	em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRoomsRects())
 	em.SpawnEnemies()
 
 	rle := effects.NewRetroLightingEffect(
 		int32(helpers.MAP_WIDTH*helpers.TILE_SIZE), int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE), 50, 2, p,
 	)
 
-	rle.AddLightSource(
-		rl.Vector2{X: 100, Y: 100},
-		true,
-		50,
-		"static",
-	)
-
-	rle.AddLightSource(
-		rl.Vector2{X: w.Props[0].Position.X + float32(w.Props[0].CurrentAnim.Frames[0].Width/2)*0.7, Y: w.Props[0].Position.Y + float32(w.Props[0].CurrentAnim.Frames[0].Height/2)*0.7},
-		false,
-		20,
-		"pulse",
-	)
+	rle.SetUpPropsLightning(w.PropsManager.GetProps())
 
 	return &Game{
 		player:       p,
@@ -127,10 +108,15 @@ func (g *Game) Run() {
 		fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
 		rl.DrawText(fpsText, 10, 35, 20, rl.Gray)
 		rl.DrawText(fmt.Sprintf("CAM ZOOM : %.3f", g.camera.Zoom), 10, 60, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("DECAY FACTOR : %.3f", helpers.DECAY_FACTOR), 10, 85, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("LIGHT RADIUS : %.3f", helpers.LIGHT_RADIUS), 10, 110, 20, rl.Gray)
 
 		rl.EndDrawing()
 	}
 }
+
+var lastLightSwitch time.Time
+var lastLightningSwitch time.Time
 
 func (g *Game) Update(deltaTime float32) {
 
@@ -151,30 +137,57 @@ func (g *Game) Update(deltaTime float32) {
 	if rl.IsKeyDown(rl.KeyR) {
 		x, y := g.world.SwitchMap()
 		g.player.Position = rl.NewVector2(x, y)
-		g.enemies.Rooms = g.world.Map.GetRooms()
+		g.enemies.Rooms = g.world.Map.GetRoomsRects()
 		g.enemies.ResetEnemies()
 	}
 
+	if rl.IsKeyDown(rl.KeyK) {
+		helpers.DECAY_FACTOR += 0.25
+	}
+
+	if rl.IsKeyDown(rl.KeyJ) {
+		helpers.DECAY_FACTOR -= 0.25
+	}
+
+	if rl.IsKeyDown(rl.KeyI) {
+		helpers.LIGHT_RADIUS += 0.5
+	}
+
+	if rl.IsKeyDown(rl.KeyU) {
+		helpers.LIGHT_RADIUS -= 0.5
+	}
+
 	if rl.IsKeyDown(rl.KeyL) {
-		g.flags ^= RENDER_LIGHTING
+		if time.Since(lastLightSwitch) > time.Second {
+			g.flags ^= RENDER_LIGHTING
+			lastLightSwitch = time.Now()
+		}
 	}
 
 	if g.flags&RENDER_LIGHTING != 0 {
 		g.lightning.Update()
 	}
+
+	if rl.IsKeyDown(rl.KeyP) {
+		if time.Since(lastLightningSwitch) > time.Second {
+			g.lightning.NextLightningMode()
+			lastLightningSwitch = time.Now()
+		}
+	}
+
 	//! END DEVELOPMENT
 
 	g.player.Update(deltaTime)
 	g.enemies.Update(deltaTime, g.player)
 
 	// PATH FINDING
-	// helpers.DEBUG("PLAYER POS", g.player.Position)
-	// g.world.Pathfinder.Update(
-	// 	int(g.player.Position.X/helpers.TILE_SIZE),
-	// 	int(g.player.Position.Y/helpers.TILE_SIZE),
-	// 	int(g.world.Map.GetRooms()[len(g.world.Map.GetRooms())-1].X),
-	// 	int(g.world.Map.GetRooms()[len(g.world.Map.GetRooms())-1].Y),
-	// )
+	helpers.DEBUG("PLAYER POS", g.player.Position)
+	g.world.Pathfinder.Update(
+		int(g.player.Position.X/helpers.TILE_SIZE),
+		int(g.player.Position.Y/helpers.TILE_SIZE),
+		int(g.world.Map.GetRoomsRects()[len(g.world.Map.GetRoomsRects())-1].X),
+		int(g.world.Map.GetRoomsRects()[len(g.world.Map.GetRoomsRects())-1].Y),
+	)
 
 	// g.teleportTimer.Update(deltaTime)
 	// g.transition.Update()
@@ -199,6 +212,11 @@ func (g *Game) Render() {
 	g.enemies.Render()
 	g.player.Render() // Render player here
 	g.transition.Render()
+	// g.world.Pathfinder.Render()
+
+	g.world.Pathfinder.Render(
+		g.player.GetPlayerRoom(),
+	)
 
 	if g.flags&RENDER_LIGHTING != 0 {
 		g.lightning.Render()

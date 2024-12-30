@@ -90,12 +90,16 @@ func (m *Map) FirstRoomPosition() (float32, float32) {
 		float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
 }
 
-func (m *Map) GetRooms() []helpers.Rectangle {
+func (m *Map) GetRoomsRects() []helpers.Rectangle {
 	rectangles := make([]helpers.Rectangle, len(m.rooms))
 	for i, room := range m.rooms {
 		rectangles[i] = room.Rectangle
 	}
 	return rectangles
+}
+
+func (m *Map) GetRooms() *[]*Room {
+	return &m.rooms
 }
 
 func (m *Map) SwitchMap() (float32, float32) {
@@ -119,10 +123,10 @@ func (m *Map) generateDungeon() {
 	m.connectRooms()
 }
 
-func (m *Map) GetRoomsBySize(size RoomSize) []Room {
+func (m *Map) GetRoomsBySize(size int) []Room {
 	var result []Room
 	for _, room := range m.rooms {
-		if room.Size == size {
+		if room.Size == RoomSize(size) {
 			result = append(result, *room)
 		}
 	}
@@ -174,7 +178,7 @@ func (m *Map) chooseRoomSize(depth int) RoomSize {
 	if depth > 5 {
 		return RoomSize(rand.Intn(3))
 	}
-	if rand.Float32() < 0.7 {
+	if rand.Float32() < 0.6 {
 		return SmallRoom
 	}
 	return MediumRoom
@@ -431,4 +435,79 @@ func (m *Map) CurrentRoomIndex(p rl.Vector2) int {
 	}
 
 	return -1
+}
+
+func (r *Room) GetLightPositions() []rl.Vector2 {
+
+	helpers.DEBUG("Room size", r.Size)
+
+	switch r.Size {
+	case SmallRoom:
+		helpers.DEBUG("Small room", "")
+		lights := make([]rl.Vector2, 1)
+
+		centerX := r.X*helpers.TILE_SIZE + r.Width*helpers.TILE_SIZE/2
+		centerY := r.Y*helpers.TILE_SIZE + r.Height*helpers.TILE_SIZE/2
+
+		lights[0] = rl.NewVector2(float32(centerX), float32(centerY))
+		return lights
+
+	case MediumRoom:
+		helpers.DEBUG("Medium room", "")
+		lights := make([]rl.Vector2, 4)
+		centerX := r.X*helpers.TILE_SIZE + r.Width*helpers.TILE_SIZE/2
+		centerY := r.Y*helpers.TILE_SIZE + r.Height*helpers.TILE_SIZE/2
+		lightOffsetX := r.Width * helpers.TILE_SIZE / 4
+		lightOffsetY := r.Height * helpers.TILE_SIZE / 4
+
+		lights[0] = rl.NewVector2(float32(centerX+lightOffsetX), float32(centerY+lightOffsetY))
+		lights[1] = rl.NewVector2(float32(centerX-lightOffsetX), float32(centerY+lightOffsetY))
+		lights[2] = rl.NewVector2(float32(centerX+lightOffsetX), float32(centerY-lightOffsetY))
+		lights[3] = rl.NewVector2(float32(centerX-lightOffsetX), float32(centerY-lightOffsetY))
+		return lights
+	case LargeRoom:
+		helpers.DEBUG("Large room", "")
+		lights := make([]rl.Vector2, 4)
+		centerX := r.X*helpers.TILE_SIZE + r.Width*helpers.TILE_SIZE/2
+		centerY := r.Y*helpers.TILE_SIZE + r.Height*helpers.TILE_SIZE/2
+		lightOffsetX := r.Width * helpers.TILE_SIZE / 4
+		lightOffsetY := r.Height * helpers.TILE_SIZE / 4
+
+		lights[0] = rl.NewVector2(float32(centerX+lightOffsetX), float32(centerY+lightOffsetY))
+		lights[1] = rl.NewVector2(float32(centerX-lightOffsetX), float32(centerY+lightOffsetY))
+		lights[2] = rl.NewVector2(float32(centerX+lightOffsetX), float32(centerY-lightOffsetY))
+		lights[3] = rl.NewVector2(float32(centerX-lightOffsetX), float32(centerY-lightOffsetY))
+		return lights
+	}
+
+	return nil
+}
+
+func (mp *Map) GetRandomRoomCenterBySize(size int) (float32, float32) {
+
+	rooms := mp.GetRoomsBySize(size)
+
+	if len(rooms) == 0 {
+		return 0, 0
+	}
+
+	room := rooms[rand.Intn(len(rooms))]
+
+	centerX := room.X*helpers.TILE_SIZE + room.Width*helpers.TILE_SIZE/2
+	centerY := room.Y*helpers.TILE_SIZE + room.Height*helpers.TILE_SIZE/2
+
+	return float32(centerX), float32(centerY)
+}
+
+func (r *Room) ProperRoomLightning() (scale float32, radius float32) {
+	switch r.Size {
+	case SmallRoom:
+		return 0.6, 30 + 10
+	case MediumRoom:
+		return 0.8, 40 + 10
+	case LargeRoom:
+		return 1, 50 + 10
+	}
+	return 0, 0
+
 }

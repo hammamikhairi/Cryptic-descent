@@ -92,6 +92,7 @@ func (pf *Pathfinder) Update(x1, y1, x2, y2 int) {
 		}
 	}
 }
+
 func (pf *Pathfinder) Render(currentRoomIndex int) {
 	if currentRoomIndex == -1 || currentRoomIndex >= len(pf.rooms) {
 		// No room found or invalid index, fallback to drawing the path normally.
@@ -100,18 +101,18 @@ func (pf *Pathfinder) Render(currentRoomIndex int) {
 	}
 
 	// Get the current room
-	currentRoom := pf.rooms[currentRoomIndex]
+	// currentRoom := pf.rooms[currentRoomIndex]
 
 	// Check if the room has both entrance and exit
-	if len(currentRoom.Doors) >= 2 {
-		// Draw a direct line from entrance to exit
-		entrance := currentRoom.Doors[0]
-		exit := currentRoom.Doors[1]
-		rl.DrawLineEx(entrance, exit, 3, rl.ColorAlpha(rl.Green, 0.7))
-	} else {
-		// Draw the smooth path normally if there is no entrance-exit configuration
-		pf.drawSmoothPath()
-	}
+	// if len(currentRoom.Doors) >= 2 {
+	// 	// Draw a direct line from entrance to exit
+	// 	entrance := currentRoom.Doors[0]
+	// 	exit := currentRoom.Doors[1]
+	// 	rl.DrawLineEx(entrance, exit, 3, rl.ColorAlpha(rl.Green, 0.7))
+	// } else {
+	// Draw the smooth path normally if there is no entrance-exit configuration
+	pf.drawSmoothPath()
+	// }
 }
 
 // Helper function to draw the smooth path if no entrance/exit is defined.

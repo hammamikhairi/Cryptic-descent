@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"image/color"
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -25,12 +26,15 @@ const (
 	ENEMIES_DIRECTION_CHANGE_THRESHOLD = 5.0
 
 	//LIGHTNING
-	DECAY_FACTOR = 4.75
 
 	CAM_ZOOM = 6.5
 )
 
-// var (
-// )
+var (
+	VOID_COLOR   = color.RGBA{88, 68, 34, 255}
+	DECAY_FACTOR = 5.5
+	LIGHT_RADIUS = float32(98.0)
+	// VOID_COLOR = color.RGBA{0, 0, 0, 255}
+)
 
 var DAMAGE_COLOR rl.Color = rl.NewColor(255, 0, 0, 255) // red
