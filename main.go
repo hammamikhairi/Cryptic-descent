@@ -3,7 +3,6 @@ package main
 import (
 	"crydes/audio"
 	"crydes/core"
-	"crydes/effects"
 	"crydes/helpers"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -34,9 +33,7 @@ func main() {
 	soundManager := audio.NewSoundManager()
 	defer soundManager.Unload()
 
-	transition := effects.NewTransition(0.01)
-
-	game := core.NewGame(soundManager, transition, int(screenWidth), int(screenHeight))
+	game := core.NewGame(soundManager, int(screenWidth), int(screenHeight))
 
 	for !rl.WindowShouldClose() {
 		// Handle fullscreen toggle

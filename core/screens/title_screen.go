@@ -49,7 +49,7 @@ func (ts *TitleScreen) Update(deltaTime float32) bool {
 		button.Update()
 	}
 
-	if rl.IsKeyDown(rl.KeyP) {
+	if rl.IsKeyDown(rl.KeyEnter) {
 		ts.soundManager.RequestMusic("dungeon_theme", true)
 		return true
 	}

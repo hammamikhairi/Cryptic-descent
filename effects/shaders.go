@@ -108,6 +108,10 @@ func NewRetroLightingEffect(screenWidth, screenHeight int32, lightRadius float32
 	return rle
 }
 
+func (rle *RetroLightingEffect) SetMode(mode string) {
+	rle.lightSources[0].SetMode(mode)
+}
+
 func (rle *RetroLightingEffect) NextLightningMode() {
 	rle.currentModeIndex++
 	if rle.currentModeIndex >= len(rle.modeOrder) {
@@ -121,7 +125,13 @@ func (rle *RetroLightingEffect) NextLightningMode() {
 	println("---> ", rle.lightSources[0].Mode())
 }
 
+func (rle *RetroLightingEffect) Count() int {
+	return len(rle.lightSources)
+}
 func (rle *RetroLightingEffect) SetUpPropsLightning(props *[]*world.Prop) {
+	// free rle.lightSources
+	rle.lightSources = rle.lightSources[:1]
+
 	for _, prop := range *props {
 		rle.AddLightSource(
 			rl.Vector2{X: prop.Position.X + float32(prop.CurrentAnim.Frames[0].Width/2)*prop.Scale, Y: prop.Position.Y + float32(prop.CurrentAnim.Frames[0].Height)*prop.Scale},

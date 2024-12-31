@@ -14,6 +14,8 @@ import (
 
 	"crydes/core/minimap"
 
+	"math/rand"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -30,7 +32,6 @@ type Game struct {
 	lightning *effects.RetroLightingEffect
 
 	soundManager *audio.SoundManager // Reference to the sound manager
-	transition   *effects.Transition // Reference to the transition effect
 
 	enemies *enemies.EnemiesManager
 
@@ -48,10 +49,18 @@ type Game struct {
 
 	minimap             *minimap.Minimap
 	collectiblesManager *world.CollectibleManager
+
+	// Dungeon shifting
+	shiftTimer     float32
+	isShifting     bool
+	shiftDelay     float32
+	shiftText      string
+	shiftTextTimer float32
+	fadeAlpha      float32
 }
 
 // NewGame initializes a new game instance
-func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, width, height int) *Game {
+func NewGame(soundManager *audio.SoundManager, width, height int) *Game {
 
 	w := world.NewWorld()
 	collectibleManager := world.NewCollectibleManager()
@@ -72,7 +81,7 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 	collectibleManager.AddItem(2, world.SpeedPotion, x+30, y+30)
 	collectibleManager.AddItem(3, world.Poison, x-30, y+30)
 
-	rle.SetUpPropsLightning(w.PropsManager.GetProps())
+	// rle.SetUpPropsLightning(w.PropsManager.GetProps())
 
 	mm := minimap.NewMinimap(w.Map)
 
@@ -80,7 +89,6 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 		player:              p,
 		world:               w,
 		soundManager:        soundManager,
-		transition:          transition,
 		enemies:             em,
 		width:               width,
 		height:              height,
@@ -92,12 +100,19 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 		showTitle:           true,
 		minimap:             mm,
 		collectiblesManager: collectibleManager,
+		shiftTimer:          0,
+		isShifting:          false,
+		// shiftDelay:          float32(4 + rand.Intn(41)), // Random value between 40 and 80 seconds
+		shiftDelay:     float32(4 + rand.Intn(3)), // Random value between 40 and 80 seconds
+		shiftText:      "The dungeon shifts beneath your feet...",
+		shiftTextTimer: 0,
+		fadeAlpha:      0,
 	}
 
 }
 
 func (g *Game) Run() {
-	rl.SetTargetFPS(45)
+	rl.SetTargetFPS(60)
 	previousTime := rl.GetTime()
 
 	// Initialize the camera with correct offset for centering
@@ -157,6 +172,14 @@ func (g *Game) Run() {
 		rl.DrawText(fmt.Sprintf("DECAY FACTOR : %.3f", helpers.DECAY_FACTOR), 10, 85, 20, rl.Gray)
 		rl.DrawText(fmt.Sprintf("LIGHT RADIUS : %.3f", helpers.LIGHT_RADIUS), 10, 110, 20, rl.Gray)
 
+		// Debug information
+		rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
+		// if g.isShifting {
+		// rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
+		// }
+
 		rl.EndDrawing()
 	}
 }
@@ -197,7 +220,7 @@ func (g *Game) Update(deltaTime float32) {
 		g.collectiblesManager.ScatterCollectibles(g.world.Map.GetRoomsRects(), g.world.Map)
 
 		// Reset lighting
-		g.lightning.SetUpPropsLightning(g.world.PropsManager.GetProps())
+		// g.lightning.SetUpPropsLightning(g.world.PropsManager.GetProps())
 
 		// Reset minimap
 		g.minimap.SetDirty()
@@ -285,6 +308,55 @@ func (g *Game) Update(deltaTime float32) {
 	}
 
 	g.minimap.Update(g.player.GetPosition())
+	println(g.lightning.Count(), len(*g.world.PropsManager.GetProps()))
+
+	// Update dungeon shift timer
+	if !g.isShifting {
+		g.shiftTimer += deltaTime
+		if g.shiftTimer >= g.shiftDelay-5 { // Start effect 5 seconds before shift
+			g.lightning.SetMode("shimmer") // Set to HandleGlitchLighting (or any other mode you prefer)
+		}
+		if g.shiftTimer >= g.shiftDelay {
+			g.isShifting = true
+			g.fadeAlpha = 0
+		}
+	} else {
+		// Handle the shift transition
+		const fadeSpeed = 1.0
+		const textDuration = 2.0 // Show text for 2 seconds
+
+		if g.shiftTextTimer < textDuration {
+			// First phase: fade to black
+			g.fadeAlpha += fadeSpeed * deltaTime
+			if g.fadeAlpha >= 1.0 {
+				g.fadeAlpha = 1.0
+				g.shiftTextTimer += deltaTime
+			}
+		} else if g.shiftTextTimer >= textDuration && g.shiftTextTimer < textDuration+0.1 {
+			// Perform the actual shift exactly once
+			x, y := g.world.SwitchMap()
+			g.player.Position = rl.NewVector2(x, y)
+			g.enemies.Rooms = g.world.Map.GetRoomsRects()
+			g.enemies.ResetEnemies()
+			g.collectiblesManager.ScatterCollectibles(g.world.Map.GetRoomsRects(), g.world.Map)
+			g.lightning.SetUpPropsLightning(g.world.PropsManager.GetProps())
+			g.lightning.SetMode("static") // Reset to default lighting mode
+			g.minimap.SetDirty()
+			g.shiftTextTimer = textDuration + 0.1
+		} else {
+			// Final phase: fade back in
+			g.fadeAlpha -= fadeSpeed * deltaTime
+			if g.fadeAlpha <= 0 {
+				// Reset for next shift
+				g.isShifting = false
+				g.shiftTimer = 0
+				g.shiftTextTimer = 0
+				g.fadeAlpha = 0
+				// g.shiftDelay = float32(40 + rand.Intn(41)) // Random value between 40 and 80 seconds
+				g.shiftDelay = float32(1 + rand.Intn(3)) // Random value between 40 and 80 seconds
+			}
+		}
+	}
 }
 
 func (g *Game) Render() {
@@ -292,7 +364,7 @@ func (g *Game) Render() {
 	g.world.Render()
 	g.enemies.Render()
 	g.player.Render()
-	g.transition.Render()
+	// g.transition.Render()
 	// g.world.Pathfinde<r.Render()
 	// //
 	// g.world.Pathfinder.Render(
@@ -308,4 +380,29 @@ func (g *Game) Render() {
 	// Render minimap after EndMode2D so it stays fixed on screen
 	g.minimap.Render(g.player.Position)
 	g.player.RenderHearts()
+
+	// Render shift transition effects
+	if g.isShifting {
+		// Draw darkening overlay
+		rl.DrawRectangle(0, 0, int32(g.width), int32(g.height),
+			rl.ColorAlpha(rl.Black, g.fadeAlpha))
+
+		// Draw text if faded to black
+		if g.fadeAlpha >= 1.0 {
+			fontSize := int32(30)
+			textWidth := rl.MeasureText(g.shiftText, fontSize)
+			textX := int32(g.width/2) - textWidth/2
+			textY := int32(g.height / 2)
+
+			rl.DrawText(g.shiftText, textX, textY, fontSize, rl.White)
+		}
+	}
+
+	// Debug information
+	rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
+	rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
+	rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
+	// if g.isShifting {
+	// 	rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
+	// }
 }
