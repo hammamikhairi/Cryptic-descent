@@ -81,7 +81,7 @@ func NewGame(soundManager *audio.SoundManager, width, height int) *Game {
 	collectibleManager.AddItem(2, world.SpeedPotion, x+30, y+30)
 	collectibleManager.AddItem(3, world.Poison, x-30, y+30)
 
-	// rle.SetUpPropsLightning(w.PropsManager.GetProps())
+	rle.SetUpPropsLightning(w.PropsManager.GetProps())
 
 	mm := minimap.NewMinimap(w.Map)
 
@@ -352,8 +352,8 @@ func (g *Game) Update(deltaTime float32) {
 				g.shiftTimer = 0
 				g.shiftTextTimer = 0
 				g.fadeAlpha = 0
-				// g.shiftDelay = float32(40 + rand.Intn(41)) // Random value between 40 and 80 seconds
-				g.shiftDelay = float32(1 + rand.Intn(3)) // Random value between 40 and 80 seconds
+				g.shiftDelay = float32(40 + rand.Intn(41)) // Random value between 40 and 80 seconds
+				// g.shiftDelay = float32(1 + rand.Intn(3)) // Random value between 40 and 80 seconds
 			}
 		}
 	}

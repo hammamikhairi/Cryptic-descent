@@ -59,6 +59,7 @@ type RetroLightingEffect struct {
 	modes            map[string]func(rl.Vector2, float32)
 	noiseMap         [][]float32
 	time             float32
+	visibleRange     float32
 }
 
 func NewRetroLightingEffect(screenWidth, screenHeight int32, lightRadius float32, pixelSize int32, p *player.Player) *RetroLightingEffect {
@@ -76,6 +77,7 @@ func NewRetroLightingEffect(screenWidth, screenHeight int32, lightRadius float32
 		},
 		currentModeIndex: 0,
 		lightSources:     []LightSourceIf{},
+		visibleRange:     float32(screenWidth) / 4,
 	}
 
 	rle.modes = map[string]func(rl.Vector2, float32){
@@ -160,16 +162,22 @@ func (rle *RetroLightingEffect) Update() {
 	rl.BeginTextureMode(rle.lightMask)
 	rl.ClearBackground(rl.Black)
 
+	playerPos := rle.player.GetPlayerCenterPoint()
 	for i := range rle.lightSources {
-		// rle.modes[rle.lightSources[i].Mode()](rle.lightSources[i].Position(), rle.lightSources[i].Radius())
-		rle.modes[rle.lightSources[i].Mode()](rle.lightSources[i].Position(), helpers.LIGHT_RADIUS)
+		lightPos := rle.lightSources[i].Position()
+		// Check if light source is within visible range of player
+		if helpers.Distance(playerPos, lightPos) <= rle.visibleRange {
+			rle.modes[rle.lightSources[i].Mode()](lightPos, rle.lightSources[i].Radius())
+		}
 	}
 
 	rl.EndTextureMode()
 }
 
 func (rle *RetroLightingEffect) Render() {
+
 	rl.BeginBlendMode(rl.BlendMultiplied)
+
 	rl.DrawTextureRec(rle.lightMask.Texture,
 		rl.Rectangle{
 			X:      0,
