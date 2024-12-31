@@ -80,31 +80,30 @@ func (em *EnemiesManager) ResetEnemies() {
 }
 
 func (em *EnemiesManager) SpawnEnemies() {
+	// First spawn in rooms as before
+	em.spawnEnemiesInRooms()
+	// Then spawn in corridors
+	// em.spawnEnemiesInCorridors()
+}
+
+// Move the existing room spawning logic to this method
+func (em *EnemiesManager) spawnEnemiesInRooms() {
 	for i, room := range em.Rooms {
-		// Skip the first room (starting room)
 		if i == 0 {
 			continue
-		}
+		} // Skip starting room
 
-		// Convert room to proper Room type to get size
 		actualRoom := em.Map.GetRoomByRect(room)
 		if actualRoom == nil {
 			continue
 		}
 
-		// Calculate number of enemies based on room size
 		numEnemies := calculateEnemiesForRoom(actualRoom.Size)
-
-		helpers.DEBUG("SPAWNING ENEMIES INTO ROOM", actualRoom.Size)
 
 		for j := 0; j < numEnemies; j++ {
 			ePos := room.GetRandomPosInRect()
 			eType := helpers.GetRandomEnemyType()
-
-			// Adjust enemy attributes based on room size
 			scale, speed, health := getEnemyAttributes(actualRoom.Size)
-
-			println(scale, speed, health)
 
 			enemy := NewEnemy(
 				j,
@@ -116,6 +115,37 @@ func (em *EnemiesManager) SpawnEnemies() {
 				em.Animations[eType],
 				health,
 				i,
+				em.soundManager,
+			)
+
+			em.Enemies = append(em.Enemies, enemy)
+		}
+	}
+}
+
+// Add new method for corridor spawning
+func (em *EnemiesManager) spawnEnemiesInCorridors() {
+	corridorTiles := em.Map.GetCorridorTiles()
+
+	// Spawn an enemy every N tiles in corridors (adjust as needed)
+	spawnFrequency := 20 // Adjust this value to control density
+
+	for i := 0; i < len(corridorTiles); i += spawnFrequency {
+		if rand.Float32() < 0.3 { // 30% chance to spawn at each valid location
+			pos := corridorTiles[i]
+			eType := helpers.GetRandomEnemyType()
+
+			// Corridor enemies are slightly weaker
+			enemy := NewEnemy(
+				i,
+				pos.X,
+				pos.Y,
+				0.6, // Smaller scale
+				rl.NewVector2(16, 16),
+				150, // Slower speed
+				em.Animations[eType],
+				2,  // Less health
+				-1, // No specific room
 				em.soundManager,
 			)
 

@@ -136,10 +136,10 @@ func (rle *RetroLightingEffect) SetUpPropsLightning(props *[]*world.Prop) {
 
 	for _, prop := range *props {
 		rle.AddLightSource(
-			rl.Vector2{X: prop.Position.X + float32(prop.CurrentAnim.Frames[0].Width/2)*prop.Scale, Y: prop.Position.Y + float32(prop.CurrentAnim.Frames[0].Height)*prop.Scale},
+			rl.Vector2{X: prop.Position.X + float32(prop.CurrentAnim.Frames[0].Width/2)*prop.Scale, Y: prop.Position.Y - 10 + float32(prop.CurrentAnim.Frames[0].Height)*prop.Scale},
 			false,
 			prop.LTRadius,
-			"static",
+			"shimmer",
 		)
 	}
 }

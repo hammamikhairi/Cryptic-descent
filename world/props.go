@@ -10,6 +10,7 @@ import (
 type PropsManager struct {
 	rooms *[]*Room
 	props []*Prop
+	Map   *Map
 }
 
 // Prop represents an interactive or static item in the game.
@@ -32,44 +33,75 @@ type Prop struct {
 	Friction float32 // Friction to apply when interacting with other objects
 }
 
-func newPropsManager(rooms *[]*Room) *PropsManager {
+func newPropsManager(rooms *[]*Room, mp *Map) *PropsManager {
 	return &PropsManager{
 		rooms: rooms,
 		props: []*Prop{},
+		Map:   mp,
 	}
 }
 
 func (pm *PropsManager) SetUpProps() {
+	// First set up room props (lights etc)
+	pm.setupRoomProps()
+	// Then set up corridor props
+	pm.setupCorridorProps()
+}
 
+func (pm *PropsManager) setupRoomProps() {
 	for _, room := range *pm.rooms {
-
-		// register light props
 		lightPos := room.GetLightPositions()
 		scale, radius := room.ProperRoomLightning()
 		for _, pos := range lightPos {
-			pm.props = append(
-				pm.props,
-				NewProp(
-					1,
-					"fire",
-					pos.X,
-					pos.Y,
-					scale,
-					radius,
-					rl.NewVector2(16, 16),
-					helpers.LoadAnimation(
-						"assets/fireplace/1.png",
-						"assets/fireplace/2.png",
-						"assets/fireplace/3.png",
-						"assets/fireplace/4.png",
-					),
-					true,
+			pm.props = append(pm.props, NewProp(
+				1,
+				"fire",
+				pos.X,
+				pos.Y,
+				scale,
+				radius,
+				rl.NewVector2(16, 16),
+				helpers.LoadAnimation(
+					"assets/fireplace/1.png",
+					"assets/fireplace/2.png",
+					"assets/fireplace/3.png",
+					"assets/fireplace/4.png",
 				),
-			)
+				true,
+			))
 		}
-
 	}
+}
 
+func (pm *PropsManager) setupCorridorProps() {
+	corridorTiles := pm.Map.GetCorridorTiles()
+
+	// Place props every N tiles in corridors
+	propFrequency := 25 // Adjust this value to control density
+
+	for i := 0; i < len(corridorTiles); i += propFrequency {
+		if rand.Float32() < 0.4 { // 40% chance to spawn at each valid location
+			pos := corridorTiles[i]
+
+			// Create a smaller light source for corridors
+			pm.props = append(pm.props, NewProp(
+				1,
+				"fire",
+				pos.X,
+				pos.Y,
+				0.5, // Smaller scale
+				20,  // Smaller light radius
+				rl.NewVector2(16, 16),
+				helpers.LoadAnimation(
+					"assets/fireplace/1.png",
+					"assets/fireplace/2.png",
+					"assets/fireplace/3.png",
+					"assets/fireplace/4.png",
+				),
+				true,
+			))
+		}
+	}
 }
 
 func (pm *PropsManager) Update(refreshRate float32) {

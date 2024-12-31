@@ -88,6 +88,7 @@ func (sm *SoundManager) loadSounds() {
 	sm.LoadSound("damage", "assets/audio/sfx/damage.mp3", 0.5)
 	sm.LoadSound("death", "assets/audio/sfx/death.mp3", 0.7)
 	sm.LoadSound("heal", "assets/audio/sfx/heal.mp3", 0.7)
+	sm.LoadSound("biwa", "assets/audio/sfx/biwa.mp3", 0.7)
 
 	// Music tracks
 	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")

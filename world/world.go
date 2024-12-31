@@ -14,7 +14,7 @@ func NewWorld() *World {
 	wrld := &World{
 		Map:          mp,
 		Pathfinder:   NewPathfinder(mp),
-		PropsManager: newPropsManager(mp.GetRooms()),
+		PropsManager: newPropsManager(mp.GetRooms(), mp),
 	}
 
 	wrld.PropsManager.SetUpProps()
@@ -33,7 +33,7 @@ func (w *World) SwitchMap() (float32, float32) {
 	w.Pathfinder = NewPathfinder(w.Map)
 
 	// Reset props manager
-	w.PropsManager = newPropsManager(w.Map.GetRooms())
+	w.PropsManager = newPropsManager(w.Map.GetRooms(), w.Map)
 	w.PropsManager.SetUpProps()
 
 	return x, y

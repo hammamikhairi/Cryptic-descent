@@ -51,12 +51,13 @@ type Game struct {
 	collectiblesManager *world.CollectibleManager
 
 	// Dungeon shifting
-	shiftTimer     float32
-	isShifting     bool
-	shiftDelay     float32
-	shiftText      string
-	shiftTextTimer float32
-	fadeAlpha      float32
+	shiftTimer       float32
+	isShifting       bool
+	shiftDelay       float32
+	shiftText        string
+	shiftTextTimer   float32
+	fadeAlpha        float32
+	shiftSoundPlayed bool
 }
 
 // NewGame initializes a new game instance
@@ -188,8 +189,8 @@ var lastLightSwitch time.Time
 var lastLightningSwitch time.Time
 
 func (g *Game) GetLastRoomPos() (int, int) {
-	rm := g.world.Map.GetRoomsRects()[len(g.world.Map.GetRoomsRects())-1]
-	return int(rm.X + rm.Height/2), int(rm.Y + rm.Width/2)
+	lastRoom := (*g.world.Map.GetRooms())[len(*g.world.Map.GetRooms())-1]
+	return int(lastRoom.X + lastRoom.Height/2), int(lastRoom.Y + lastRoom.Width/2)
 }
 
 func (g *Game) Update(deltaTime float32) {
@@ -314,18 +315,23 @@ func (g *Game) Update(deltaTime float32) {
 	if !g.isShifting {
 		g.shiftTimer += deltaTime
 		if g.shiftTimer >= g.shiftDelay-5 { // Start effect 5 seconds before shift
-			g.lightning.SetMode("shimmer") // Set to HandleGlitchLighting (or any other mode you prefer)
+			g.lightning.SetMode("heartbeat") // Set to HandleGlitchLighting (or any other mode you prefer)
 		}
 		if g.shiftTimer >= g.shiftDelay {
 			g.isShifting = true
 			g.fadeAlpha = 0
 		}
 	} else {
+
 		// Handle the shift transition
 		const fadeSpeed = 1.0
 		const textDuration = 2.0 // Show text for 2 seconds
 
 		if g.shiftTextTimer < textDuration {
+			if !g.shiftSoundPlayed {
+				g.soundManager.RequestSound("biwa", 1.0, 1.0) // Adjust sound name as needed
+				g.shiftSoundPlayed = true
+			}
 			// First phase: fade to black
 			g.fadeAlpha += fadeSpeed * deltaTime
 			if g.fadeAlpha >= 1.0 {
@@ -334,6 +340,7 @@ func (g *Game) Update(deltaTime float32) {
 			}
 		} else if g.shiftTextTimer >= textDuration && g.shiftTextTimer < textDuration+0.1 {
 			// Perform the actual shift exactly once
+
 			x, y := g.world.SwitchMap()
 			g.player.Position = rl.NewVector2(x, y)
 			g.enemies.Rooms = g.world.Map.GetRoomsRects()
@@ -343,6 +350,7 @@ func (g *Game) Update(deltaTime float32) {
 			g.lightning.SetMode("static") // Reset to default lighting mode
 			g.minimap.SetDirty()
 			g.shiftTextTimer = textDuration + 0.1
+			g.shiftSoundPlayed = false
 		} else {
 			// Final phase: fade back in
 			g.fadeAlpha -= fadeSpeed * deltaTime
@@ -367,9 +375,9 @@ func (g *Game) Render() {
 	// g.transition.Render()
 	// g.world.Pathfinde<r.Render()
 	// //
-	// g.world.Pathfinder.Render(
-	// 	g.player.GetPlayerRoom(),
-	// )
+	g.world.Pathfinder.Render(
+		g.player.GetPlayerRoom(),
+	)
 
 	if g.flags&RENDER_LIGHTING != 0 {
 		g.lightning.Render()

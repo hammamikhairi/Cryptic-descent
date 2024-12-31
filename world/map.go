@@ -1,7 +1,9 @@
 package world
 
 import (
+	"math"
 	"math/rand"
+	"sort"
 
 	helpers "crydes/helpers"
 
@@ -86,8 +88,15 @@ func (m *Map) initDungeon() {
 }
 
 func (m *Map) FirstRoomPosition() (float32, float32) {
-	return float32((m.rooms[0].X + m.rooms[0].Width/2) * helpers.TILE_SIZE),
-		float32((m.rooms[0].Y + m.rooms[0].Height/2) * helpers.TILE_SIZE)
+	// Choose a random room that's not the last room
+	roomIndex := rand.Intn(len(m.rooms) - 1)
+	room := m.rooms[roomIndex]
+
+	// Move the chosen room to the front of the slice
+	m.rooms[0], m.rooms[roomIndex] = m.rooms[roomIndex], m.rooms[0]
+
+	return float32((room.X + room.Width/2) * helpers.TILE_SIZE),
+		float32((room.Y + room.Height/2) * helpers.TILE_SIZE)
 }
 
 func (m *Map) GetRoomsRects() []helpers.Rectangle {
@@ -114,7 +123,7 @@ func (m *Map) generateDungeon() {
 	m.initDungeon()
 	for len(m.rooms) < 3 {
 		m.rooms = []*Room{}
-		m.bspSplit(helpers.Rectangle{X: 4, Y: 4, Width: helpers.MAP_WIDTH - 8, Height: helpers.MAP_HEIGHT - 8}, 0)
+		m.bspSplit(helpers.Rectangle{X: 1, Y: 1, Width: helpers.MAP_WIDTH - 2, Height: helpers.MAP_HEIGHT - 2}, 0)
 	}
 
 	for _, room := range m.rooms {
@@ -145,8 +154,8 @@ func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 
 		maxAttempts := 100
 		for attempt := 0; attempt < maxAttempts; attempt++ {
-			roomX := rand.Intn(int(area.Width)-int(roomWidth)-2) + int(area.X) + 1
-			roomY := rand.Intn(int(area.Height)-int(roomHeight)-2) + int(area.Y) + 1
+			roomX := int(area.X) + (int(area.Width)-int(roomWidth))/2 + rand.Intn(3) - 1
+			roomY := int(area.Y) + (int(area.Height)-int(roomHeight))/2 + rand.Intn(3) - 1
 
 			newRoom := Room{
 				Rectangle: helpers.Rectangle{X: int32(roomX), Y: int32(roomY), Width: roomWidth, Height: roomHeight},
@@ -158,17 +167,17 @@ func (m *Map) bspSplit(area helpers.Rectangle, depth int) {
 				return
 			}
 		}
-
-		helpers.DEBUG("Failed to generate a valid room after maximum attempts", "")
 		return
 	}
 
+	splitRatio := 0.4 + rand.Float64()*0.2
+
 	if rand.Intn(2) == 0 && area.Width > helpers.MIN_ROOM_SIZE*2 {
-		split := rand.Intn(int(area.Width)/2) + int(area.Width/4)
+		split := int(float64(area.Width) * splitRatio)
 		m.bspSplit(helpers.Rectangle{area.X, area.Y, int32(split), area.Height}, depth+1)
 		m.bspSplit(helpers.Rectangle{area.X + int32(split), area.Y, area.Width - int32(split), area.Height}, depth+1)
 	} else if area.Height > helpers.MIN_ROOM_SIZE*2 {
-		split := rand.Intn(int(area.Height)/2) + int(area.Height/4)
+		split := int(float64(area.Height) * splitRatio)
 		m.bspSplit(helpers.Rectangle{area.X, area.Y, area.Width, int32(split)}, depth+1)
 		m.bspSplit(helpers.Rectangle{area.X, area.Y + int32(split), area.Width, area.Height - int32(split)}, depth+1)
 	}
@@ -223,25 +232,202 @@ func (m *Map) carveRoom(room helpers.Rectangle) {
 
 // Connect rooms with corridors.
 func (m *Map) connectRooms() {
-	for i := 1; i < len(m.rooms); i++ {
-		prevRoom := m.rooms[i-1]
-		currRoom := m.rooms[i]
+	numRooms := len(m.rooms)
+	if numRooms == 0 {
+		return
+	}
 
-		prevCenterX := prevRoom.X + prevRoom.Width/2
-		prevCenterY := prevRoom.Y + prevRoom.Height/2
-		currCenterX := currRoom.X + currRoom.Width/2
-		currCenterY := currRoom.Y + currRoom.Height/2
+	// Create a list of all possible connections
+	type connection struct {
+		room1, room2 int
+		distance     float64
+	}
 
-		// Create horizontal corridor between rooms.
-		for x := min(prevCenterX, currCenterX); x <= max(prevCenterX, currCenterX); x++ {
-			m.dungeon[x][prevCenterY] = 1
-		}
+	var connections []connection
 
-		// Create vertical corridor between rooms.
-		for y := min(prevCenterY, currCenterY); y <= max(prevCenterY, currCenterY); y++ {
-			m.dungeon[currCenterX][y] = 1
+	// Generate all possible connections between rooms
+	for i := 0; i < numRooms; i++ {
+		for j := i + 1; j < numRooms; j++ {
+			dist := distanceBetweenRooms(m.rooms[i], m.rooms[j])
+			connections = append(connections, connection{i, j, dist})
 		}
 	}
+
+	// Sort connections by distance
+	sort.Slice(connections, func(i, j int) bool {
+		return connections[i].distance < connections[j].distance
+	})
+
+	// Union-Find data structure for detecting cycles
+	parent := make([]int, numRooms)
+	for i := range parent {
+		parent[i] = i
+	}
+
+	// Find with path compression
+	var find func(int) int
+	find = func(x int) int {
+		if parent[x] != x {
+			parent[x] = find(parent[x])
+		}
+		return parent[x]
+	}
+
+	// Union by rank
+	union := func(x, y int) {
+		parent[find(x)] = find(y)
+	}
+
+	// Create minimum spanning tree
+	connected := make(map[int]map[int]bool)
+	for i := 0; i < numRooms; i++ {
+		connected[i] = make(map[int]bool)
+	}
+
+	// Connect rooms using Kruskal's algorithm
+	for _, conn := range connections {
+		if find(conn.room1) != find(conn.room2) {
+			union(conn.room1, conn.room2)
+			connected[conn.room1][conn.room2] = true
+			connected[conn.room2][conn.room1] = true
+			m.createCorridor(m.rooms[conn.room1], m.rooms[conn.room2])
+		}
+	}
+
+	// Add a few extra connections for loops (optional)
+	for _, conn := range connections {
+		if !connected[conn.room1][conn.room2] && rand.Float64() < 0.2 { // 20% chance for extra connections
+			m.createCorridor(m.rooms[conn.room1], m.rooms[conn.room2])
+			connected[conn.room1][conn.room2] = true
+			connected[conn.room2][conn.room1] = true
+		}
+	}
+}
+
+func (m *Map) createCorridor(room1, room2 *Room) {
+	// Get room centers
+	start := rl.Vector2{
+		X: float32(room1.X + room1.Width/2),
+		Y: float32(room1.Y + room1.Height/2),
+	}
+	end := rl.Vector2{
+		X: float32(room2.X + room2.Width/2),
+		Y: float32(room2.Y + room2.Height/2),
+	}
+
+	// Create 2-3 control points for more organic paths
+	numPoints := rand.Intn(2) + 2
+	controlPoints := make([]rl.Vector2, numPoints)
+	controlPoints[0] = start
+	controlPoints[numPoints-1] = end
+
+	// Generate intermediate control points
+	for i := 1; i < numPoints-1; i++ {
+		controlPoints[i] = rl.Vector2{
+			X: start.X + (end.X-start.X)*float32(i)/float32(numPoints-1) + float32(rand.Intn(5)-2),
+			Y: start.Y + (end.Y-start.Y)*float32(i)/float32(numPoints-1) + float32(rand.Intn(5)-2),
+		}
+	}
+
+	// Carve paths through all control points
+	for i := 0; i < len(controlPoints)-1; i++ {
+		m.carvePath(controlPoints[i], controlPoints[i+1])
+	}
+}
+
+func (m *Map) carvePath(start, end rl.Vector2) {
+	x := int32(start.X)
+	y := int32(start.Y)
+
+	// Make the corridor wider at the start
+	m.carveArea(x, y, 3)
+
+	for x != int32(end.X) || y != int32(end.Y) {
+		if x < int32(end.X) {
+			x++
+		} else if x > int32(end.X) {
+			x--
+		}
+
+		if y < int32(end.Y) {
+			y++
+		} else if y > int32(end.Y) {
+			y--
+		}
+
+		// Always carve a wider path (minimum width)
+		m.carveArea(x, y, 2)
+
+		// Randomly make even wider corridors at some points
+		if rand.Float32() < 0.3 {
+			m.carveArea(x, y, 3)
+		}
+	}
+
+	// Make the corridor wider at the end
+	m.carveArea(int32(end.X), int32(end.Y), 3)
+}
+
+func (m *Map) carveArea(x, y int32, radius int32) {
+	// Cap the radius to a maximum value (e.g., 3)
+	maxRadius := int32(2)
+	if radius > maxRadius {
+		radius = maxRadius
+	}
+
+	// First pass: carve the main area
+	for dx := -radius; dx <= radius; dx++ {
+		for dy := -radius; dy <= radius; dy++ {
+			newX := x + dx
+			newY := y + dy
+			if m.isValidPosition(newX, newY) {
+				m.dungeon[newX][newY] = 1
+			}
+		}
+	}
+
+	// Second pass: smooth out corners to prevent 1-tile gaps
+	for dx := -radius - 1; dx <= radius+1; dx++ {
+		for dy := -radius - 1; dy <= radius+1; dy++ {
+			newX := x + dx
+			newY := y + dy
+			if m.isValidPosition(newX, newY) {
+				// If surrounded by walkable tiles, make this tile walkable too
+				if m.countAdjacentWalkable(newX, newY) >= 5 {
+					m.dungeon[newX][newY] = 1
+				}
+			}
+		}
+	}
+}
+
+func (m *Map) countAdjacentWalkable(x, y int32) int {
+	count := 0
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			newX := x + int32(dx)
+			newY := y + int32(dy)
+			if m.isValidPosition(newX, newY) && m.dungeon[newX][newY] == 1 {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func (m *Map) isValidPosition(x, y int32) bool {
+	return x > 0 && x < helpers.MAP_WIDTH-1 && y > 0 && y < helpers.MAP_HEIGHT-1
+}
+
+func distanceBetweenRooms(r1, r2 *Room) float64 {
+	c1x := float64(r1.X) + float64(r1.Width)/2
+	c1y := float64(r1.Y) + float64(r1.Height)/2
+	c2x := float64(r2.X) + float64(r2.Width)/2
+	c2y := float64(r2.Y) + float64(r2.Height)/2
+
+	dx := c1x - c2x
+	dy := c1y - c2y
+	return math.Sqrt(dx*dx + dy*dy)
 }
 
 func min(a, b int32) int32 {
@@ -520,4 +706,36 @@ func (m *Map) GetRoomByRect(rect helpers.Rectangle) *Room {
 		}
 	}
 	return nil
+}
+
+// Add this new method to get walkable areas that aren't rooms
+func (m *Map) GetCorridorTiles() []rl.Vector2 {
+	var corridorTiles []rl.Vector2
+
+	// Check each tile in the map
+	for x := 0; x < helpers.MAP_WIDTH; x++ {
+		for y := 0; y < helpers.MAP_HEIGHT; y++ {
+			if m.dungeon[x][y] == 1 { // If it's a walkable tile
+				isInRoom := false
+				// Check if this tile is in any room
+				for _, room := range m.rooms {
+					if room.ContainsPoint(rl.Vector2{
+						X: float32(x * helpers.TILE_SIZE),
+						Y: float32(y * helpers.TILE_SIZE),
+					}) {
+						isInRoom = true
+						break
+					}
+				}
+				// If it's not in any room, it's a corridor tile
+				if !isInRoom {
+					corridorTiles = append(corridorTiles, rl.Vector2{
+						X: float32(x * helpers.TILE_SIZE),
+						Y: float32(y * helpers.TILE_SIZE),
+					})
+				}
+			}
+		}
+	}
+	return corridorTiles
 }
