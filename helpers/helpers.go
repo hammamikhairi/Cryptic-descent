@@ -14,7 +14,7 @@ func LoadAnimation(id string, filePaths ...string) *Animation {
 
 		if texture.ID == 0 {
 			rl.TraceLog(rl.LogError, "Failed to load texture: %s", path)
-			panic("Failed to load texture")
+			panic("Failed to load texture at [" + path + "]")
 		}
 
 		textures = append(textures, texture)

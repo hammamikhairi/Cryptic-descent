@@ -10,6 +10,7 @@ import (
 const (
 	SCREEN_WIDTH  = 800
 	SCREEN_HEIGHT = 800
+	FULLSCREEN    = false
 	TILE_SIZE     = 16 // Smaller tile size for a more compact map
 	MAP_WIDTH     = 100
 	MAP_HEIGHT    = 100

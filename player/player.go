@@ -6,8 +6,17 @@ import (
 	helpers "crydes/helpers"
 	wrld "crydes/world"
 
+	"time"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
+
+type Effect struct {
+	Type      string
+	Value     float32
+	Duration  time.Duration
+	ExpiresAt time.Time
+}
 
 type Player struct {
 	Position rl.Vector2
@@ -31,10 +40,12 @@ type Player struct {
 	heartParticles *effects.ParticleSystem
 	lastHealth     int
 
-	audio *audio.SoundManager
+	audio         *audio.SoundManager
+	effectsChan   <-chan wrld.ItemEffectEvent
+	ActiveEffects map[string]*Effect
 }
 
-func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager) *Player {
+func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <-chan wrld.ItemEffectEvent) *Player {
 	idleRight := helpers.LoadAnimation("IDLE_R",
 		"assets/player/1.png",
 		"assets/player/2.png",
@@ -110,8 +121,11 @@ func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager) *Player {
 		heartParticles: effects.NewParticleSystem(),
 		lastHealth:     5,
 		audio:          sm,
+		effectsChan:    effectsChan,
+		ActiveEffects:  make(map[string]*Effect),
 	}
 
+	go p.listenForEffects()
 	go p.listenForDamage()
 
 	return p
@@ -120,6 +134,8 @@ func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager) *Player {
 const MOV_SPEED = 0.006
 
 func (p *Player) Update(refreshRate float32) {
+	// Update effects at the start of each frame
+	p.updateEffects()
 
 	if p.CheckHealth(); p.State == "dying" {
 		p.CurrentAnim = p.Animations["die"]
@@ -192,6 +208,7 @@ func (p *Player) HandlePlayerMovement() bool {
 	// Determine target positions based on current position and speed
 	targetX, targetY := p.Position.X, p.Position.Y
 	moving := false
+	// fmt.Println(p.Speed)
 
 	// Horizontal movement
 	if rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD) {
@@ -394,17 +411,18 @@ func (p *Player) RenderHearts() {
 	// Common calculations
 	heartScale := float32(5.0)
 	heartSize := float32(8) * heartScale
-	padding := float32(10)
+	padding := float32(5)
 	startX := float32(20)
 	startY := float32(rl.GetScreenHeight() - int(heartSize) - 20)
 
-	// Draw blurry background
-	totalWidth := (heartSize+padding)*float32(5) + padding // Width for 5 hearts
+	// Draw blurry background - make it taller to accommodate effects
+	totalWidth := (heartSize+padding)*float32(5) + padding
+	effectHeight := float32(30) // Height for effect indicators
 	bgRect := rl.Rectangle{
 		X:      startX - padding,
-		Y:      startY - padding,
+		Y:      startY - padding - effectHeight,
 		Width:  totalWidth,
-		Height: heartSize + padding*2,
+		Height: heartSize + padding*2 + effectHeight,
 	}
 	rl.DrawRectangle(
 		int32(bgRect.X),
@@ -415,9 +433,44 @@ func (p *Player) RenderHearts() {
 	)
 
 	// Draw border
-	rl.DrawRectangleLinesEx(bgRect, 2,
-		rl.ColorAlpha(rl.White, 0.3),
-	)
+	rl.DrawRectangleLinesEx(bgRect, 2, rl.ColorAlpha(rl.White, 0.3))
+
+	// Render active effects
+	effectY := startY - effectHeight + padding
+	effectX := startX
+	for effectType, effect := range p.ActiveEffects {
+		remaining := effect.ExpiresAt.Sub(time.Now())
+		if remaining > 0 {
+			// Draw effect indicator
+			effectColor := rl.White
+			effectText := effectType
+			switch effectType {
+			case "speed":
+				effectColor = rl.Green
+				effectText = "Speed Boost"
+			case "poison":
+				effectColor = rl.Purple
+				effectText = "Poisoned"
+			}
+
+			// Draw effect name
+			rl.DrawText(effectText, int32(effectX), int32(effectY), 15, effectColor)
+
+			// Draw timer bar
+			barWidth := float32(100)
+			barHeight := float32(5)
+			progress := float32(remaining) / float32(effect.Duration)
+			rl.DrawRectangle(
+				int32(effectX),
+				int32(effectY)+22,
+				int32(barWidth*progress),
+				int32(barHeight),
+				effectColor,
+			)
+
+			effectX += barWidth + padding
+		}
+	}
 
 	// Check if health has decreased
 	if p.Health < p.lastHealth {
@@ -446,20 +499,91 @@ func (p *Player) RenderHearts() {
 	}
 }
 
-func (p *Player) Handle_effects(effectsChan chan wrld.ItemEffectEvent) {
-	select {
-	case effect := <-effectsChan:
+func (p *Player) updateEffects() {
+	now := time.Now()
+	for effectType, effect := range p.ActiveEffects {
+		if now.After(effect.ExpiresAt) {
+			println("death")
+			// Remove expired effect and restore original values
+			switch effectType {
+			case "speed":
+				println("death 1")
+				p.Speed /= effect.Value // Restore original speed
+			case "poison":
+				// Stop taking poison damage
+			}
+			println("death 2")
+			delete(p.ActiveEffects, effectType)
+		}
+	}
+}
+
+func (p *Player) applyEffect(effectType string, value float32, duration time.Duration) {
+	// Remove existing effect of the same type if it exists
+	if existing, exists := p.ActiveEffects[effectType]; exists {
+		// Remove the existing effect first
+		println("herhehrehrkehrkher")
+		switch effectType {
+		case "speed":
+			p.Speed /= existing.Value // Restore original speed before applying new one
+		}
+	}
+
+	// Apply the new effect
+	p.ActiveEffects[effectType] = &Effect{
+		Type:      effectType,
+		Value:     value,
+		Duration:  duration,
+		ExpiresAt: time.Now().Add(duration),
+	}
+
+	// Apply immediate effect
+	switch effectType {
+	case "speed":
+		p.Speed *= value
+	case "poison":
+		go p.handlePoisonEffect(value, duration)
+	}
+}
+
+func (p *Player) handlePoisonEffect(damage float32, duration time.Duration) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	endTime := time.Now().Add(duration)
+
+	for {
+		select {
+		case <-ticker.C:
+			if time.Now().After(endTime) {
+				return
+			}
+			if p.State != "dying" {
+				p.Health -= int(damage)
+				if p.Health <= 0 {
+					p.Die()
+					return
+				}
+			}
+		}
+	}
+}
+
+func (p *Player) listenForEffects() {
+	for effect := range p.effectsChan {
 		switch effect.Effect.Type {
 		case "heal":
-		//   player.Health += effect.Effect.Value
+			p.audio.RequestSound("heal", 1.0, 1.0)
+			p.Health = helpers.Min(p.Health+int(effect.Effect.Value), 5)
 		case "speed":
-		//   player.ApplySpeedBoost(effect.Effect.Value, effect.Effect.Duration)
+			println("HELL YEAH")
+			p.applyEffect("speed", effect.Effect.Value, effect.Effect.Duration)
+		case "poison":
+			p.applyEffect("poison", effect.Effect.Value, effect.Effect.Duration)
 		case "key":
-		//   player.AddKey()
+			// Implement key collection logic
 		case "coin":
-			//   player.AddCoin()
+			// Implement coin collection logic
 		}
-	default:
-		// No effect to process
 	}
 }

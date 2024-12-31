@@ -8,9 +8,8 @@ import (
 )
 
 type PropsManager struct {
-	rooms      *[]*Room
-	props      []*Prop
-	EffectChan chan ItemEffectEvent
+	rooms *[]*Room
+	props []*Prop
 }
 
 // Prop represents an interactive or static item in the game.
@@ -168,42 +167,14 @@ func (p *Prop) RandomizePosition(bounds rl.Rectangle) {
 }
 
 // CheckCollision checks if the prop collides with another rectangle.
-func (p *Prop) CheckCollision(target rl.Rectangle) bool {
-	propRect := rl.NewRectangle(p.Position.X, p.Position.Y, p.Size.X*p.Scale, p.Size.Y*p.Scale)
-	return rl.CheckCollisionRecs(propRect, target)
-}
+// func (p *Prop) CheckCollision(target rl.Rectangle) bool {
+// 	propRect := rl.NewRectangle(p.Position.X, p.Position.Y, p.Size.X*p.Scale, p.Size.Y*p.Scale)
+// 	return rl.CheckCollisionRecs(propRect, target)
+// }
 
 // ApplyFriction reduces the velocity of the prop based on its friction coefficient.
 func (p *Prop) ApplyFriction(velocity rl.Vector2) rl.Vector2 {
 	velocity.X *= p.Friction
 	velocity.Y *= p.Friction
 	return velocity
-}
-
-func (pm *PropsManager) SpawnItem(itemType ItemType, x, y float32) *CollectibleItem {
-	animation := LoadItemAnimation(itemType)
-	if animation == nil {
-		return nil
-	}
-
-	item := NewCollectibleItem(
-		len(pm.props),
-		itemType,
-		x, y,
-		animation,
-		pm.EffectChan,
-	)
-
-	pm.props = append(pm.props, item.Prop)
-	return item
-}
-
-func (pm *PropsManager) SpawnRandomItem(bounds rl.Rectangle) *CollectibleItem {
-	itemTypes := []ItemType{HealthPotion, SpeedPotion, Key, Coin}
-	randomType := itemTypes[rand.Intn(len(itemTypes))]
-
-	x := bounds.X + rand.Float32()*(bounds.Width-16)
-	y := bounds.Y + rand.Float32()*(bounds.Height-16)
-
-	return pm.SpawnItem(randomType, x, y)
 }

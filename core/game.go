@@ -46,18 +46,19 @@ type Game struct {
 	isPaused    bool
 	showTitle   bool
 
-	minimap *minimap.Minimap
+	minimap             *minimap.Minimap
+	collectiblesManager *world.CollectibleManager
 }
 
 // NewGame initializes a new game instance
 func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, width, height int) *Game {
 
-	effectsChan := make(chan world.ItemEffectEvent, 100)
 	w := world.NewWorld()
-	w.PropsManager.EffectChan = effectsChan
+	collectibleManager := world.NewCollectibleManager()
 
 	x, y := w.PlayerSpawn()
-	p := player.NewPlayer(x, y, w.Map, soundManager)
+	p := player.NewPlayer(x, y, w.Map, soundManager, collectibleManager.GetEffectsChan())
+	collectibleManager.SetPlayerPosition(&p.Position)
 
 	em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRoomsRects(), soundManager)
 	em.SpawnEnemies()
@@ -66,34 +67,37 @@ func NewGame(soundManager *audio.SoundManager, transition *effects.Transition, w
 		int32(helpers.MAP_WIDTH*helpers.TILE_SIZE), int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE), 50, 2, p,
 	)
 
-	rle.SetUpPropsLightning(w.PropsManager.GetProps())
+	collectibleManager.ScatterCollectibles(w.Map.GetRoomsRects(), w.Map)
+	collectibleManager.AddItem(1, world.HealthPotion, x+20, y+20)
+	collectibleManager.AddItem(2, world.SpeedPotion, x+30, y+30)
+	collectibleManager.AddItem(3, world.Poison, x-30, y+30)
 
-	// w.PropsManager.SpawnItem(world.HealthPotion, x, y)
-	p.Handle_effects(effectsChan)
+	rle.SetUpPropsLightning(w.PropsManager.GetProps())
 
 	mm := minimap.NewMinimap(w.Map)
 
 	return &Game{
-		player:       p,
-		world:        w,
-		soundManager: soundManager,
-		transition:   transition,
-		enemies:      em,
-		width:        width,
-		height:       height,
-		lightning:    rle,
-		flags:        0,
-		pauseScreen:  screens.NewPauseScreen(soundManager),
-		titleScreen:  screens.NewTitleScreen(soundManager),
-		isPaused:     false,
-		showTitle:    true,
-		minimap:      mm,
+		player:              p,
+		world:               w,
+		soundManager:        soundManager,
+		transition:          transition,
+		enemies:             em,
+		width:               width,
+		height:              height,
+		lightning:           rle,
+		flags:               0,
+		pauseScreen:         screens.NewPauseScreen(soundManager),
+		titleScreen:         screens.NewTitleScreen(soundManager),
+		isPaused:            false,
+		showTitle:           true,
+		minimap:             mm,
+		collectiblesManager: collectibleManager,
 	}
 
 }
 
 func (g *Game) Run() {
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(45)
 	previousTime := rl.GetTime()
 
 	// Initialize the camera with correct offset for centering
@@ -184,8 +188,18 @@ func (g *Game) Update(deltaTime float32) {
 	if rl.IsKeyDown(rl.KeyR) {
 		x, y := g.world.SwitchMap()
 		g.player.Position = rl.NewVector2(x, y)
+
+		// Reset enemies
 		g.enemies.Rooms = g.world.Map.GetRoomsRects()
 		g.enemies.ResetEnemies()
+
+		// Reset collectibles
+		g.collectiblesManager.ScatterCollectibles(g.world.Map.GetRoomsRects(), g.world.Map)
+
+		// Reset lighting
+		g.lightning.SetUpPropsLightning(g.world.PropsManager.GetProps())
+
+		// Reset minimap
 		g.minimap.SetDirty()
 	}
 
@@ -233,6 +247,7 @@ func (g *Game) Update(deltaTime float32) {
 	g.world.PropsManager.Update(deltaTime)
 	g.player.Update(deltaTime)
 	g.enemies.Update(deltaTime, g.player)
+	g.collectiblesManager.Update(deltaTime)
 
 	// PATH FINDING
 	// helpers.DEBUG("PLAYER POS", g.player.Position)
@@ -287,6 +302,7 @@ func (g *Game) Render() {
 	if g.flags&RENDER_LIGHTING != 0 {
 		g.lightning.Render()
 	}
+	g.collectiblesManager.Render()
 	rl.EndMode2D()
 
 	// Render minimap after EndMode2D so it stays fixed on screen

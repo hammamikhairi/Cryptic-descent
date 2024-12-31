@@ -19,7 +19,7 @@ import (
 //   │       └── ...
 
 const (
-	MASTER_VOL = 0.1
+	MASTER_VOL = 0.9
 	MUSIC_BASE = 0.3
 	VFX_BASE   = 0.7
 )
@@ -87,7 +87,7 @@ func (sm *SoundManager) loadSounds() {
 	sm.LoadSound("sword_hit", "assets/audio/sfx/sword_hit.mp3", 0.3)
 	sm.LoadSound("damage", "assets/audio/sfx/damage.mp3", 0.5)
 	sm.LoadSound("death", "assets/audio/sfx/death.mp3", 0.7)
-	// sm.LoadSound("enemy_death", "assets/audio/sfx/enemy_death.mp3")
+	sm.LoadSound("heal", "assets/audio/sfx/heal.mp3", 0.7)
 
 	// Music tracks
 	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
