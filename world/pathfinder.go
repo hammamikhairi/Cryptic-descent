@@ -121,16 +121,99 @@ func (pf *Pathfinder) drawSmoothPath() {
 		return
 	}
 
-	// Convert path to smooth points
-	smoothPath := pf.createSmoothPath()
-
-	// Draw the smooth path
-	for i := 0; i < len(smoothPath)-1; i++ {
-		rl.DrawLineEx(smoothPath[i], smoothPath[i+1], 3, rl.ColorAlpha(rl.Green, 0.7))
+	// Convert path points to world coordinates
+	points := make([]rl.Vector2, len(pf.path))
+	for i, node := range pf.path {
+		points[i] = rl.Vector2{
+			X: float32(node.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+			Y: float32(node.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+		}
 	}
 
-	// Optionally, draw some decorative elements
-	pf.drawPathDecorations(smoothPath)
+	// Apply Catmull-Rom spline interpolation
+	smoothPoints := make([]rl.Vector2, 0)
+	segmentPoints := 8 // Number of points per segment
+
+	// Add first point
+	smoothPoints = append(smoothPoints, points[0])
+
+	// Interpolate middle points
+	for i := 0; i < len(points)-3; i++ {
+		p0 := points[i]
+		p1 := points[i+1]
+		p2 := points[i+2]
+		p3 := points[i+3]
+
+		for j := 0; j < segmentPoints; j++ {
+			t := float32(j) / float32(segmentPoints)
+
+			// Catmull-Rom interpolation
+			point := rl.Vector2{
+				X: catmullRom(t, p0.X, p1.X, p2.X, p3.X),
+				Y: catmullRom(t, p0.Y, p1.Y, p2.Y, p3.Y),
+			}
+
+			smoothPoints = append(smoothPoints, point)
+		}
+	}
+
+	// Add last point
+	smoothPoints = append(smoothPoints, points[len(points)-1])
+
+	// Draw the smooth path with gradient effect
+	for i := 0; i < len(smoothPoints)-1; i++ {
+		progress := float32(i) / float32(len(smoothPoints)-1)
+
+		// Create a gradient effect from green to blue
+		color := rl.ColorAlpha(rl.Color{
+			R: uint8(0),
+			G: uint8(255 * (1 - progress)),
+			B: uint8(255 * progress),
+			A: 255,
+		}, 0.6)
+
+		// Draw thicker line with smooth fade
+		thickness := 4.0 - (progress * 2.0)
+		rl.DrawLineEx(smoothPoints[i], smoothPoints[i+1], thickness, color)
+
+		// Add glow effect
+		rl.DrawLineEx(smoothPoints[i], smoothPoints[i+1], thickness+2,
+			rl.ColorAlpha(color, 0.2))
+	}
+
+	// Draw direction indicators
+	for i := 0; i < len(smoothPoints); i += 8 {
+		if i+1 < len(smoothPoints) {
+			drawDirectionIndicator(smoothPoints[i], smoothPoints[i+1])
+		}
+	}
+}
+
+func catmullRom(t, p0, p1, p2, p3 float32) float32 {
+	t2 := t * t
+	t3 := t2 * t
+
+	return 0.5 * ((2 * p1) +
+		(-p0+p2)*t +
+		(2*p0-5*p1+4*p2-p3)*t2 +
+		(-p0+3*p1-3*p2+p3)*t3)
+}
+
+func drawDirectionIndicator(p1, p2 rl.Vector2) {
+	dir := rl.Vector2Subtract(p2, p1)
+	dir = rl.Vector2Normalize(dir)
+
+	// Calculate perpendicular vector for arrow head
+	perp := rl.Vector2{X: -dir.Y, Y: dir.X}
+	arrowSize := float32(6.0)
+
+	// Calculate arrow head points
+	tip := rl.Vector2Add(p1, rl.Vector2Scale(dir, arrowSize*2))
+	left := rl.Vector2Subtract(tip, rl.Vector2Scale(rl.Vector2Add(dir, perp), arrowSize))
+	right := rl.Vector2Subtract(tip, rl.Vector2Scale(rl.Vector2Subtract(dir, perp), arrowSize))
+
+	// Draw arrow head
+	rl.DrawTriangle(tip, left, right, rl.ColorAlpha(rl.Green, 0.4))
 }
 
 // Find the index of the current room based on player position

@@ -1,6 +1,8 @@
 package player
 
 import (
+	"crydes/audio"
+	effects "crydes/effects/particle"
 	helpers "crydes/helpers"
 	wrld "crydes/world"
 
@@ -23,11 +25,16 @@ type Player struct {
 	IsTakingDamage bool
 	AttackChan     chan rl.Rectangle
 
-	LastDirection string
-	State         string // Add a state field to track the current state
+	LastDirection  string
+	State          string // Add a state field to track the current state
+	HeartTexture   rl.Texture2D
+	heartParticles *effects.ParticleSystem
+	lastHealth     int
+
+	audio *audio.SoundManager
 }
 
-func NewPlayer(x, y float32, mp *wrld.Map) *Player {
+func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager) *Player {
 	idleRight := helpers.LoadAnimation("IDLE_R",
 		"assets/player/1.png",
 		"assets/player/2.png",
@@ -74,6 +81,8 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 		"assets/player/63.png",
 	)
 
+	heartTexture := rl.LoadTexture("assets/ui/heart.png")
+
 	p := &Player{
 		Position: rl.NewVector2(x, y),
 		Speed:    200.0,
@@ -93,10 +102,14 @@ func NewPlayer(x, y float32, mp *wrld.Map) *Player {
 			rl.NewVector2(-8, -4),
 			"right",
 		),
-		DamageChan: make(chan bool, 10),
-		AttackChan: make(chan rl.Rectangle, 10),
-		Health:     5,
-		Scale:      0.5,
+		DamageChan:     make(chan bool, 10),
+		AttackChan:     make(chan rl.Rectangle, 10),
+		Health:         5,
+		Scale:          0.5,
+		HeartTexture:   heartTexture,
+		heartParticles: effects.NewParticleSystem(),
+		lastHealth:     5,
+		audio:          sm,
 	}
 
 	go p.listenForDamage()
@@ -294,6 +307,7 @@ func (p *Player) TakeDamage() {
 		return
 	}
 
+	p.audio.RequestSound("damage", 1.0, 1.0)
 	// Change the player's state to taking damage.
 	p.State = "taking_damage"
 	p.DamageChan <- true
@@ -335,6 +349,7 @@ func (p *Player) CheckHealth() {
 func (p *Player) Die() {
 	// Set the state to dying and play the death animation.
 	p.State = "dying"
+	p.audio.RequestSound("death", 1.0, 1.0)
 }
 
 func (p *Player) Attack() {
@@ -373,4 +388,78 @@ func (p *Player) GetPlayerCenterPoint() rl.Vector2 {
 		p.Position.X+float32(p.CurrentAnim.Frames[0].Width/2)*p.Scale,
 		p.Position.Y+float32(p.CurrentAnim.Frames[0].Width/2)*p.Scale,
 	)
+}
+
+func (p *Player) RenderHearts() {
+	// Common calculations
+	heartScale := float32(5.0)
+	heartSize := float32(8) * heartScale
+	padding := float32(10)
+	startX := float32(20)
+	startY := float32(rl.GetScreenHeight() - int(heartSize) - 20)
+
+	// Draw blurry background
+	totalWidth := (heartSize+padding)*float32(5) + padding // Width for 5 hearts
+	bgRect := rl.Rectangle{
+		X:      startX - padding,
+		Y:      startY - padding,
+		Width:  totalWidth,
+		Height: heartSize + padding*2,
+	}
+	rl.DrawRectangle(
+		int32(bgRect.X),
+		int32(bgRect.Y),
+		int32(bgRect.Width),
+		int32(bgRect.Height),
+		rl.NewColor(0, 0, 0, 100),
+	)
+
+	// Draw border
+	rl.DrawRectangleLinesEx(bgRect, 2,
+		rl.ColorAlpha(rl.White, 0.3),
+	)
+
+	// Check if health has decreased
+	if p.Health < p.lastHealth {
+		// Emit particles at the position of each lost heart
+		for i := p.Health; i < p.lastHealth; i++ {
+			position := rl.Vector2{
+				X: startX + (heartSize+padding)*float32(i) + heartSize/2,
+				Y: startY + heartSize/2,
+			}
+			p.heartParticles.EmitParticles(position, 15, rl.Red, "hit")
+		}
+	}
+	p.lastHealth = p.Health
+
+	// Update and draw particles
+	p.heartParticles.Update(rl.GetFrameTime())
+	p.heartParticles.Draw()
+
+	// Draw hearts
+	for i := 0; i < p.Health; i++ {
+		position := rl.Vector2{
+			X: startX + (heartSize+padding)*float32(i),
+			Y: startY,
+		}
+		rl.DrawTextureEx(p.HeartTexture, position, 0, heartScale, rl.White)
+	}
+}
+
+func (p *Player) Handle_effects(effectsChan chan wrld.ItemEffectEvent) {
+	select {
+	case effect := <-effectsChan:
+		switch effect.Effect.Type {
+		case "heal":
+		//   player.Health += effect.Effect.Value
+		case "speed":
+		//   player.ApplySpeedBoost(effect.Effect.Value, effect.Effect.Duration)
+		case "key":
+		//   player.AddKey()
+		case "coin":
+			//   player.AddCoin()
+		}
+	default:
+		// No effect to process
+	}
 }

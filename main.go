@@ -8,8 +8,13 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+const (
+	height = 800
+	width  = 800
+)
+
 func main() {
-	rl.InitWindow(1000, 1000, "Cryptic Descent")
+	rl.InitWindow(height, width, "Cryptic Descent")
 	defer rl.CloseWindow()
 
 	soundManager := audio.NewSoundManager()
@@ -17,6 +22,6 @@ func main() {
 
 	transition := effects.NewTransition(0.01) // Create a transition effect
 
-	game := core.NewGame(soundManager, transition, 1000, 1000) // Pass sound manager and transition to the game
-	game.Run()                                                 // Start the game loop
+	game := core.NewGame(soundManager, transition, height, width) // Pass sound manager and transition to the game
+	game.Run()                                                    // Start the game loop
 }

@@ -511,3 +511,13 @@ func (r *Room) ProperRoomLightning() (scale float32, radius float32) {
 	return 0, 0
 
 }
+
+func (m *Map) GetRoomByRect(rect helpers.Rectangle) *Room {
+	for _, room := range m.rooms {
+		if room.X == rect.X && room.Y == rect.Y &&
+			room.Width == rect.Width && room.Height == rect.Height {
+			return room
+		}
+	}
+	return nil
+}

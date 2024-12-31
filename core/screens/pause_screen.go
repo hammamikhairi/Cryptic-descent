@@ -21,6 +21,10 @@ func NewPauseScreen(soundManager *audio.SoundManager) *PauseScreen {
 	return ps
 }
 
+func (ps *PauseScreen) Type() ScreenType {
+	return PAUSE
+}
+
 func (ps *PauseScreen) Init() {
 	screenWidth := float32(rl.GetScreenWidth())
 	screenHeight := float32(rl.GetScreenHeight())
@@ -41,11 +45,11 @@ func (ps *PauseScreen) Init() {
 	}
 }
 
-func (ps *PauseScreen) Update(deltaTime float32) ScreenType {
+func (ps *PauseScreen) Update(deltaTime float32) bool {
 	for _, button := range ps.buttons {
 		button.Update()
 	}
-	return ps.nextScreen
+	return ps.nextScreen == GAME
 }
 
 func (ps *PauseScreen) Render() {

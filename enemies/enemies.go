@@ -1,8 +1,11 @@
 package enemies
 
 import (
+	"math/rand"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	"crydes/audio"
 	"crydes/helpers"
 	"crydes/player"
 	"crydes/world"
@@ -16,15 +19,17 @@ type EnemiesManager struct {
 	Rooms []helpers.Rectangle
 
 	inComingDamage chan rl.Rectangle
+	soundManager   *audio.SoundManager
 }
 
-func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.Rectangle, rooms []helpers.Rectangle) *EnemiesManager {
+func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.Rectangle, rooms []helpers.Rectangle, soundManager *audio.SoundManager) *EnemiesManager {
 	manager := &EnemiesManager{
 		Enemies:        []*Enemy{},
 		Animations:     map[string]*map[string]*helpers.Animation{},
 		Map:            mp,
 		inComingDamage: playerAttackChan,
 		Rooms:          rooms,
+		soundManager:   soundManager,
 	}
 
 	manager.LoadAnimations()
@@ -76,20 +81,72 @@ func (em *EnemiesManager) ResetEnemies() {
 
 func (em *EnemiesManager) SpawnEnemies() {
 	for i, room := range em.Rooms {
+		// Skip the first room (starting room)
 		if i == 0 {
 			continue
 		}
 
-		helpers.DEBUG("SPAWNING ENEMIES INTO", room)
-		for j := 0; j < 3; j++ {
+		// Convert room to proper Room type to get size
+		actualRoom := em.Map.GetRoomByRect(room)
+		if actualRoom == nil {
+			continue
+		}
 
+		// Calculate number of enemies based on room size
+		numEnemies := calculateEnemiesForRoom(actualRoom.Size)
+
+		helpers.DEBUG("SPAWNING ENEMIES INTO ROOM", actualRoom.Size)
+
+		for j := 0; j < numEnemies; j++ {
 			ePos := room.GetRandomPosInRect()
 			eType := helpers.GetRandomEnemyType()
 
-			em.Enemies = append(
-				em.Enemies,
-				NewEnemy(1, ePos.X, ePos.Y, 0.5, rl.NewVector2(16, 16), 200, em.Animations[eType], 3, i))
+			// Adjust enemy attributes based on room size
+			scale, speed, health := getEnemyAttributes(actualRoom.Size)
+
+			println(scale, speed, health)
+
+			enemy := NewEnemy(
+				j,
+				ePos.X,
+				ePos.Y,
+				scale,
+				rl.NewVector2(16, 16),
+				speed,
+				em.Animations[eType],
+				health,
+				i,
+				em.soundManager,
+			)
+
+			em.Enemies = append(em.Enemies, enemy)
 		}
+	}
+}
+
+func calculateEnemiesForRoom(size world.RoomSize) int {
+	switch size {
+	case world.SmallRoom:
+		return 1 + rand.Intn(2) // 1-2 enemies
+	case world.MediumRoom:
+		return 2 + rand.Intn(6) // 2-4 enemies
+	case world.LargeRoom:
+		return 4 + rand.Intn(10) // 4-7 enemies
+	default:
+		return 2
+	}
+}
+
+func getEnemyAttributes(size world.RoomSize) (scale, speed float32, health int) {
+	switch size {
+	case world.SmallRoom:
+		return 0.6, 150, 2
+	case world.MediumRoom:
+		return 0.8, 200, 3
+	case world.LargeRoom:
+		return 1.1, 250, 4
+	default:
+		return 0.5, 200, 3
 	}
 }
 
@@ -104,6 +161,7 @@ func (em *EnemiesManager) Render() {
 }
 
 func (em *EnemiesManager) PlayerAttack(area rl.Rectangle) {
+	em.soundManager.RequestSound("sword_swing", 1.0, 1.0)
 	for _, e := range em.Enemies {
 		e.DamageChan <- area
 	}

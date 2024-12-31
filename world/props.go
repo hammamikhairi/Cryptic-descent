@@ -8,8 +8,9 @@ import (
 )
 
 type PropsManager struct {
-	rooms *[]*Room
-	props []*Prop
+	rooms      *[]*Room
+	props      []*Prop
+	EffectChan chan ItemEffectEvent
 }
 
 // Prop represents an interactive or static item in the game.
@@ -41,34 +42,34 @@ func newPropsManager(rooms *[]*Room) *PropsManager {
 
 func (pm *PropsManager) SetUpProps() {
 
-	// for _, room := range *pm.rooms {
+	for _, room := range *pm.rooms {
 
-	// register light props
-	// lightPos := room.GetLightPositions()
-	// scale, radius := room.ProperRoomLightning()
-	// for _, pos := range lightPos {
-	// 	pm.props = append(
-	// 		pm.props,
-	// 		NewProp(
-	// 			1,
-	// 			"fire",
-	// 			pos.X,
-	// 			pos.Y,
-	// 			scale,
-	// 			radius,
-	// 			rl.NewVector2(16, 16),
-	// 			helpers.LoadAnimation(
-	// 				"assets/fireplace/1.png",
-	// 				"assets/fireplace/2.png",
-	// 				"assets/fireplace/3.png",
-	// 				"assets/fireplace/4.png",
-	// 			),
-	// 			true,
-	// 		),
-	// 	)
-	// }
+		// register light props
+		lightPos := room.GetLightPositions()
+		scale, radius := room.ProperRoomLightning()
+		for _, pos := range lightPos {
+			pm.props = append(
+				pm.props,
+				NewProp(
+					1,
+					"fire",
+					pos.X,
+					pos.Y,
+					scale,
+					radius,
+					rl.NewVector2(16, 16),
+					helpers.LoadAnimation(
+						"assets/fireplace/1.png",
+						"assets/fireplace/2.png",
+						"assets/fireplace/3.png",
+						"assets/fireplace/4.png",
+					),
+					true,
+				),
+			)
+		}
 
-	// }
+	}
 
 }
 
@@ -177,4 +178,32 @@ func (p *Prop) ApplyFriction(velocity rl.Vector2) rl.Vector2 {
 	velocity.X *= p.Friction
 	velocity.Y *= p.Friction
 	return velocity
+}
+
+func (pm *PropsManager) SpawnItem(itemType ItemType, x, y float32) *CollectibleItem {
+	animation := LoadItemAnimation(itemType)
+	if animation == nil {
+		return nil
+	}
+
+	item := NewCollectibleItem(
+		len(pm.props),
+		itemType,
+		x, y,
+		animation,
+		pm.EffectChan,
+	)
+
+	pm.props = append(pm.props, item.Prop)
+	return item
+}
+
+func (pm *PropsManager) SpawnRandomItem(bounds rl.Rectangle) *CollectibleItem {
+	itemTypes := []ItemType{HealthPotion, SpeedPotion, Key, Coin}
+	randomType := itemTypes[rand.Intn(len(itemTypes))]
+
+	x := bounds.X + rand.Float32()*(bounds.Width-16)
+	y := bounds.Y + rand.Float32()*(bounds.Height-16)
+
+	return pm.SpawnItem(randomType, x, y)
 }

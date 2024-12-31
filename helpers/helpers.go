@@ -75,3 +75,13 @@ func (r1 *Rectangle) ContainsPoint(p rl.Vector2) bool {
 func GetRandomEnemyType() string {
 	return ENEMY_TYPES[int(rl.GetRandomValue(0, int32(len(ENEMY_TYPES)-1)))]
 }
+
+func Clamp(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}

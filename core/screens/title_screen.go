@@ -44,11 +44,25 @@ func (ts *TitleScreen) Init() {
 	ts.soundManager.RequestMusic("title_theme", true)
 }
 
-func (ts *TitleScreen) Update(deltaTime float32) ScreenType {
+func (ts *TitleScreen) Update(deltaTime float32) bool {
 	for _, button := range ts.buttons {
 		button.Update()
 	}
-	return ts.nextScreen
+
+	if rl.IsKeyDown(rl.KeyP) {
+		ts.soundManager.RequestMusic("dungeon_theme", true)
+		return true
+	}
+
+	if ts.nextScreen == GAME {
+		ts.soundManager.RequestMusic("dungeon_theme", true)
+	}
+
+	return ts.nextScreen == GAME
+}
+
+func (ts *TitleScreen) Type() ScreenType {
+	return TITLE
 }
 
 func (ts *TitleScreen) Render() {

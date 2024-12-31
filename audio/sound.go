@@ -18,6 +18,12 @@ import (
 //   │       ├── dungeon_theme.mp3
 //   │       └── ...
 
+const (
+	MASTER_VOL = 0.1
+	MUSIC_BASE = 0.3
+	VFX_BASE   = 0.7
+)
+
 // SoundType represents different categories of sounds
 type SoundType string
 
@@ -36,9 +42,15 @@ type SoundRequest struct {
 	StopMusic bool // Used for music transitions
 }
 
+// Add this struct to store sound settings
+type SoundSettings struct {
+	baseVolume float32
+	sound      rl.Sound
+}
+
 // SoundManager manages all game audio
 type SoundManager struct {
-	sounds     map[string]rl.Sound
+	sounds     map[string]SoundSettings
 	music      map[string]rl.Music
 	soundChan  chan SoundRequest
 	volumes    map[SoundType]float32
@@ -53,14 +65,14 @@ func NewSoundManager() *SoundManager {
 	rl.InitAudioDevice()
 
 	sm := &SoundManager{
-		sounds:    make(map[string]rl.Sound),
+		sounds:    make(map[string]SoundSettings),
 		music:     make(map[string]rl.Music),
 		soundChan: make(chan SoundRequest, 100), // Buffer for multiple sound requests
 		volumes: map[SoundType]float32{
-			SFX:   0.7,
-			MUSIC: 0.5,
+			SFX:   VFX_BASE,
+			MUSIC: MUSIC_BASE,
 		},
-		masterVol: 1.0,
+		masterVol: MASTER_VOL,
 		isRunning: true,
 	}
 
@@ -71,29 +83,42 @@ func NewSoundManager() *SoundManager {
 
 func (sm *SoundManager) loadSounds() {
 	// Combat sounds
-	sm.LoadSound("sword_swing", "assets/audio/sfx/sword_swing.wav")
-	sm.LoadSound("sword_hit", "assets/audio/sfx/sword_hit.wav")
-	sm.LoadSound("player_hurt", "assets/audio/sfx/player_hurt.wav")
-	sm.LoadSound("enemy_hurt", "assets/audio/sfx/enemy_hurt.wav")
-	sm.LoadSound("enemy_death", "assets/audio/sfx/enemy_death.wav")
+	sm.LoadSound("sword_swing", "assets/audio/sfx/sword_swing.mp3", 0.2)
+	sm.LoadSound("sword_hit", "assets/audio/sfx/sword_hit.mp3", 0.3)
+	sm.LoadSound("damage", "assets/audio/sfx/damage.mp3", 0.5)
+	sm.LoadSound("death", "assets/audio/sfx/death.mp3", 0.7)
+	// sm.LoadSound("enemy_death", "assets/audio/sfx/enemy_death.mp3")
 
 	// Music tracks
-	sm.LoadMusic("title_theme", "assets/audio/music/title_theme.mp3")
-	sm.LoadMusic("dungeon_theme", "assets/audio/music/dungeon_theme.mp3")
-	sm.LoadMusic("boss_theme", "assets/audio/music/boss_theme.mp3")
+	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
+	sm.LoadMusic("dungeon_theme", "assets/audio/music/gameplay.mp3")
+	// sm.LoadMusic("boss_theme", "assets/audio/music/bg.mp3")
 }
 
 // LoadSound loads a single sound effect
-func (sm *SoundManager) LoadSound(name, path string) {
+func (sm *SoundManager) LoadSound(name, path string, baseVolume float32) {
 	sound := rl.LoadSound(path)
+
+	if sound.Stream.Buffer == nil {
+		panic("[ERROR] cant load sound " + name + " at : " + path)
+	}
+
 	sm.mutex.Lock()
-	sm.sounds[name] = sound
+	sm.sounds[name] = SoundSettings{
+		baseVolume: baseVolume,
+		sound:      sound,
+	}
 	sm.mutex.Unlock()
 }
 
 // LoadMusic loads a music track
 func (sm *SoundManager) LoadMusic(name, path string) {
 	music := rl.LoadMusicStream(path)
+
+	if music.Stream.Buffer == nil {
+		panic("[ERROR] cant load music " + name + " at : " + path)
+	}
+
 	sm.mutex.Lock()
 	sm.music[name] = music
 	sm.mutex.Unlock()
@@ -104,13 +129,17 @@ func (sm *SoundManager) processSoundRequests() {
 	for sm.isRunning {
 		select {
 		case req := <-sm.soundChan:
+			// fmt.Printf("%+v\n", sm.sounds)
+			// fmt.Printf("%+v\n", sm.music)
 			sm.mutex.RLock()
 			switch req.Type {
 			case SFX:
-				if sound, exists := sm.sounds[req.Name]; exists {
-					rl.SetSoundVolume(sound, req.Volume*sm.volumes[SFX]*sm.masterVol)
-					rl.SetSoundPitch(sound, req.Pitch)
-					rl.PlaySound(sound)
+				if soundSettings, exists := sm.sounds[req.Name]; exists {
+					// Multiply by the sound's base volume
+					finalVolume := req.Volume * soundSettings.baseVolume * sm.volumes[SFX] * sm.masterVol
+					rl.SetSoundVolume(soundSettings.sound, finalVolume)
+					rl.SetSoundPitch(soundSettings.sound, req.Pitch)
+					rl.PlaySound(soundSettings.sound)
 				}
 			case MUSIC:
 				if req.StopMusic {
@@ -144,6 +173,7 @@ func (sm *SoundManager) processSoundRequests() {
 
 // RequestSound sends a sound request through the channel
 func (sm *SoundManager) RequestSound(name string, volume, pitch float32) {
+	println("requested sound")
 	sm.soundChan <- SoundRequest{
 		Name:   name,
 		Type:   SFX,
@@ -212,8 +242,8 @@ func (sm *SoundManager) Unload() {
 	}
 
 	// Unload all sounds
-	for _, sound := range sm.sounds {
-		rl.UnloadSound(sound)
+	for _, soundSettings := range sm.sounds {
+		rl.UnloadSound(soundSettings.sound)
 	}
 
 	rl.CloseAudioDevice()

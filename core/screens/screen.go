@@ -17,6 +17,7 @@ type Screen interface {
 	Update(deltaTime float32) ScreenType // Returns the next screen to transition to
 	Render()
 	Init()
+	Type() ScreenType
 	Unload()
 }
 

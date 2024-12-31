@@ -59,3 +59,7 @@ func (t *Transition) Render() {
 	fogColor := rl.Fade(rl.Gray, t.opacity) // Use opacity to set transparency
 	rl.DrawRectangle(0, 0, int32(rl.GetScreenWidth()), int32(rl.GetScreenHeight()), fogColor)
 }
+
+func (t *Transition) IsActive() bool {
+	return t.active
+}
