@@ -10,6 +10,7 @@ const (
 	GAME
 	PAUSE
 	GAME_OVER
+	OUTRO
 )
 
 // Screen interface defines methods that all screens must implement

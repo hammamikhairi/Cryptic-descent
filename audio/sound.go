@@ -93,6 +93,7 @@ func (sm *SoundManager) loadSounds() {
 	// Music tracks
 	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
 	sm.LoadMusic("dungeon_theme", "assets/audio/music/gameplay.mp3")
+	sm.LoadMusic("outro", "assets/audio/music/outro.mp3")
 	// sm.LoadMusic("boss_theme", "assets/audio/music/bg.mp3")
 }
 
@@ -248,4 +249,10 @@ func (sm *SoundManager) Unload() {
 	}
 
 	rl.CloseAudioDevice()
+}
+
+func (sm *SoundManager) GetCurrentMusic() string {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	return sm.currentBGM
 }

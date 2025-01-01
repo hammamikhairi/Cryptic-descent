@@ -44,8 +44,10 @@ type Game struct {
 
 	pauseScreen *screens.PauseScreen
 	titleScreen *screens.TitleScreen
+	outroScreen *screens.OutroScreen
 	isPaused    bool
 	showTitle   bool
+	showOutro   bool
 
 	minimap             *minimap.Minimap
 	collectiblesManager *world.CollectibleManager
@@ -97,8 +99,10 @@ func NewGame(soundManager *audio.SoundManager, width, height int) *Game {
 		flags:               0,
 		pauseScreen:         screens.NewPauseScreen(soundManager),
 		titleScreen:         screens.NewTitleScreen(soundManager),
+		outroScreen:         screens.NewOutroScreen(soundManager),
 		isPaused:            false,
 		showTitle:           true,
+		showOutro:           false,
 		minimap:             mm,
 		collectiblesManager: collectibleManager,
 		shiftTimer:          0,
@@ -129,8 +133,9 @@ func (g *Game) Run() {
 		previousTime = rl.GetTime()
 
 		// Update logic
-		if !g.isPaused && !g.showTitle {
+		if !g.isPaused && !g.showTitle && !g.showOutro {
 			g.Update(deltaTime)
+			g.checkGameEnd() // Check for game end conditions
 		} else if g.showTitle {
 			if g.titleScreen.Update(deltaTime) {
 				g.showTitle = false
@@ -138,6 +143,11 @@ func (g *Game) Run() {
 		} else if g.isPaused {
 			if g.pauseScreen.Update(deltaTime) {
 				g.isPaused = false
+			}
+		} else if g.showOutro {
+			if g.outroScreen.Update(deltaTime) {
+				g.showOutro = false
+				g.showTitle = true // Return to title screen
 			}
 		}
 
@@ -164,6 +174,11 @@ func (g *Game) Run() {
 			g.titleScreen.Render()
 		} else if g.isPaused {
 			g.pauseScreen.Render()
+		} else if g.showOutro {
+			g.outroScreen.Render()
+
+			rl.EndDrawing()
+			continue
 		}
 
 		rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Gray)
@@ -413,4 +428,13 @@ func (g *Game) Render() {
 	// if g.isShifting {
 	// 	rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
 	// }
+}
+
+func (g *Game) checkGameEnd() bool {
+	// For now, just check player's game end condition
+	if g.player.GameHasEnded() {
+		g.showOutro = true
+		return true
+	}
+	return false
 }
