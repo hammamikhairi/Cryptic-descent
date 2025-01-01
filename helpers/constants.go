@@ -7,10 +7,13 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+var (
+	SCREEN_WIDTH  int32 = 1500
+	SCREEN_HEIGHT int32 = 1000
+)
+
 const (
-	SCREEN_WIDTH  = 1000
-	SCREEN_HEIGHT = 1000
-	FULLSCREEN    = false
+	FULLSCREEN    = true
 	TILE_SIZE     = 16 // Smaller tile size for a more compact map
 	MAP_WIDTH     = 100
 	MAP_HEIGHT    = 100
@@ -32,7 +35,7 @@ const (
 )
 
 var (
-	VOID_COLOR   = color.RGBA{88, 68, 34, 255}
+	VOID_COLOR   = color.RGBA{0, 0, 0, 255}
 	DECAY_FACTOR = 5.5
 	LIGHT_RADIUS = float32(98.0)
 	// VOID_COLOR = color.RGBA{0, 0, 0, 255}

@@ -148,6 +148,41 @@ func (g *Game) Run() {
 			if g.outroScreen.Update(deltaTime) {
 				g.showOutro = false
 				g.showTitle = true // Return to title screen
+
+				w := world.NewWorld()
+				collectibleManager := world.NewCollectibleManager()
+
+				x, y := w.PlayerSpawn()
+				p := player.NewPlayer(x, y, w.Map, g.soundManager, collectibleManager.GetEffectsChan())
+				collectibleManager.SetPlayerPosition(&p.Position)
+
+				em := enemies.NewEnemiesManager(x, y, w.Map, p.AttackChan, w.Map.GetRoomsRects(), g.soundManager)
+				em.SpawnEnemies()
+
+				rle := effects.NewRetroLightingEffect(
+					int32(helpers.MAP_WIDTH*helpers.TILE_SIZE),
+					int32(helpers.MAP_HEIGHT*helpers.TILE_SIZE),
+					50, 2, p,
+				)
+
+				collectibleManager.ScatterCollectibles(w.Map.GetRoomsRects(), w.Map)
+				rle.SetUpPropsLightning(w.PropsManager.GetProps())
+
+				mm := minimap.NewMinimap(w.Map)
+
+				// Update game state
+				g.world = w
+				g.player = p
+				g.enemies = em
+				g.lightning = rle
+				g.minimap = mm
+				g.collectiblesManager = collectibleManager
+				g.shiftTimer = 0
+				g.isShifting = false
+				g.shiftDelay = float32(40 + rand.Intn(41))
+				g.fadeAlpha = 0
+
+				g.soundManager.RequestMusic("title_theme", true)
 			}
 		}
 
@@ -406,16 +441,19 @@ func (g *Game) Render() {
 
 	// Render shift transition effects
 	if g.isShifting {
-		// Draw darkening overlay
-		rl.DrawRectangle(0, 0, int32(g.width), int32(g.height),
+		currentWidth := int32(rl.GetScreenWidth())
+		currentHeight := int32(rl.GetScreenHeight())
+
+		// Draw darkening overlay with current screen dimensions
+		rl.DrawRectangle(0, 0, currentWidth, currentHeight,
 			rl.ColorAlpha(rl.Black, g.fadeAlpha))
 
 		// Draw text if faded to black
 		if g.fadeAlpha >= 1.0 {
 			fontSize := int32(30)
 			textWidth := rl.MeasureText(g.shiftText, fontSize)
-			textX := int32(g.width/2) - textWidth/2
-			textY := int32(g.height / 2)
+			textX := currentWidth/2 - textWidth/2
+			textY := currentHeight / 2
 
 			rl.DrawText(g.shiftText, textX, textY, fontSize, rl.White)
 		}

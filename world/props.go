@@ -2,6 +2,7 @@ package world
 
 import (
 	"crydes/helpers"
+	"math"
 	"math/rand"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -49,10 +50,22 @@ func (pm *PropsManager) SetUpProps() {
 }
 
 func (pm *PropsManager) setupRoomProps() {
+	const minDistance = 100.0 // Minimum distance between props
+
 	for _, room := range *pm.rooms {
 		lightPos := room.GetLightPositions()
 		scale, radius := room.ProperRoomLightning()
+
+		// Filter positions that are too close to existing props
+		var validPositions []rl.Vector2
 		for _, pos := range lightPos {
+			if pm.isPositionValid(pos.X, pos.Y, minDistance) {
+				validPositions = append(validPositions, pos)
+			}
+		}
+
+		// Place props at valid positions
+		for _, pos := range validPositions {
 			pm.props = append(pm.props, NewProp(
 				1,
 				"fire",
@@ -75,31 +88,37 @@ func (pm *PropsManager) setupRoomProps() {
 
 func (pm *PropsManager) setupCorridorProps() {
 	corridorTiles := pm.Map.GetCorridorTiles()
+	const (
+		propFrequency = 25    // Adjust this value to control density
+		minDistance   = 100.0 // Minimum distance between props
+	)
 
-	// Place props every N tiles in corridors
-	propFrequency := 25 // Adjust this value to control density
+	// Shuffle corridor tiles for random placement
+	rand.Shuffle(len(corridorTiles), func(i, j int) {
+		corridorTiles[i], corridorTiles[j] = corridorTiles[j], corridorTiles[i]
+	})
 
-	for i := 0; i < len(corridorTiles); i += propFrequency {
-		if rand.Float32() < 0.4 { // 40% chance to spawn at each valid location
-			pos := corridorTiles[i]
-
-			// Create a smaller light source for corridors
-			pm.props = append(pm.props, NewProp(
-				1,
-				"fire",
-				pos.X,
-				pos.Y,
-				0.5, // Smaller scale
-				20,  // Smaller light radius
-				rl.NewVector2(16, 16),
-				helpers.LoadAnimation(
-					"assets/fireplace/1.png",
-					"assets/fireplace/2.png",
-					"assets/fireplace/3.png",
-					"assets/fireplace/4.png",
-				),
-				true,
-			))
+	for _, pos := range corridorTiles {
+		if rand.Float32() < 0.4 { // 40% chance to try spawning
+			if pm.isPositionValid(pos.X, pos.Y, minDistance) {
+				// Create a smaller light source for corridors
+				pm.props = append(pm.props, NewProp(
+					1,
+					"fire",
+					pos.X,
+					pos.Y,
+					0.5, // Smaller scale
+					20,  // Smaller light radius
+					rl.NewVector2(16, 16),
+					helpers.LoadAnimation(
+						"assets/fireplace/1.png",
+						"assets/fireplace/2.png",
+						"assets/fireplace/3.png",
+						"assets/fireplace/4.png",
+					),
+					true,
+				))
+			}
 		}
 	}
 }
@@ -209,4 +228,22 @@ func (p *Prop) ApplyFriction(velocity rl.Vector2) rl.Vector2 {
 	velocity.X *= p.Friction
 	velocity.Y *= p.Friction
 	return velocity
+}
+
+// Add this helper function to check distance between two points
+func distanceBetweenPoints(x1, y1, x2, y2 float32) float32 {
+	dx := x2 - x1
+	dy := y2 - y1
+	return float32(math.Sqrt(float64(dx*dx + dy*dy)))
+}
+
+// Add this method to PropsManager
+func (pm *PropsManager) isPositionValid(x, y float32, minDistance float32) bool {
+	for _, prop := range pm.props {
+		dist := distanceBetweenPoints(x, y, prop.Position.X, prop.Position.Y)
+		if dist < minDistance {
+			return false
+		}
+	}
+	return true
 }

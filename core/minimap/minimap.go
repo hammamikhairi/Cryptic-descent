@@ -57,7 +57,11 @@ func NewMinimap(mapData *world.Map) *Minimap {
 	scaleY := centerSize.Y / float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)
 	scale := min(scaleX, scaleY)
 
-	texture := rl.LoadRenderTexture(int32(centerSize.X), int32(centerSize.Y))
+	// Use the same scale for both dimensions to maintain aspect ratio
+	texture := rl.LoadRenderTexture(
+		int32(float32(helpers.MAP_WIDTH*helpers.TILE_SIZE)*scale),  // Match map dimensions
+		int32(float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)*scale), // Match map dimensions
+	)
 
 	return &Minimap{
 		scale:        scale,
@@ -78,6 +82,8 @@ func (m *Minimap) ToggleView() {
 }
 
 func (m *Minimap) Update(playerPos rl.Vector2) {
+	m.UpdateDimensions()
+
 	if m.isDirty {
 		m.RenderToTexture()
 		m.isDirty = false
@@ -194,9 +200,12 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 
 	// Draw the destination marker if it exists
 	if m.hasDestination {
-		// Calculate destination position on minimap
-		destMapX := (float32(m.destinationX) * helpers.TILE_SIZE * m.scale * size.X) / m.centerSize.X
-		destMapY := (float32(m.destinationY) * helpers.TILE_SIZE * m.scale * size.Y) / m.centerSize.Y
+		// Calculate destination position relative to map dimensions
+		destRelativeX := (float32(m.destinationX) * helpers.TILE_SIZE) / float32(helpers.MAP_WIDTH*helpers.TILE_SIZE)
+		destRelativeY := (float32(m.destinationY) * helpers.TILE_SIZE) / float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)
+
+		destMapX := destRelativeX * size.X
+		destMapY := destRelativeY * size.Y
 
 		// Draw pulsing destination marker
 		pulseScale := 1.0 + 0.2*float32(math.Sin(float64(rl.GetTime()*4)))
@@ -243,4 +252,43 @@ func (m *Minimap) SetDestination(x, y int) {
 	m.destinationX = x
 	m.destinationY = y
 	m.hasDestination = true
+}
+
+func (m *Minimap) UpdateDimensions() {
+	screenWidth := float32(rl.GetScreenWidth())
+	screenHeight := float32(rl.GetScreenHeight())
+
+	// Update corner minimap dimensions (20% of screen)
+	m.cornerSize = rl.Vector2{
+		X: screenWidth * 0.2,
+		Y: screenHeight * 0.2,
+	}
+
+	m.cornerPos = rl.Vector2{
+		X: screenWidth - m.cornerSize.X - 20,
+		Y: 20,
+	}
+
+	// Update center map view dimensions (70% of screen)
+	m.centerSize = rl.Vector2{
+		X: screenWidth * 0.7,
+		Y: screenHeight * 0.7,
+	}
+
+	m.centerPos = rl.Vector2{
+		X: (screenWidth - m.centerSize.X) / 2,
+		Y: (screenHeight - m.centerSize.Y) / 2,
+	}
+
+	// Recalculate scale
+	scaleX := m.centerSize.X / float32(helpers.MAP_WIDTH*helpers.TILE_SIZE)
+	scaleY := m.centerSize.Y / float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)
+	m.scale = min(scaleX, scaleY)
+
+	// Update texture size
+	m.texture = rl.LoadRenderTexture(
+		int32(float32(helpers.MAP_WIDTH*helpers.TILE_SIZE)*m.scale),
+		int32(float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)*m.scale),
+	)
+	m.isDirty = true
 }
