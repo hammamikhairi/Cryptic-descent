@@ -10,20 +10,22 @@ import (
 )
 
 type Minimap struct {
-	scale          float32
-	cornerPos      rl.Vector2 // Position for corner minimap
-	cornerSize     rl.Vector2 // Size for corner minimap
-	centerPos      rl.Vector2 // Position for centered map view
-	centerSize     rl.Vector2 // Size for centered map view
-	mapData        *world.Map
-	texture        rl.RenderTexture2D
-	isDirty        bool
-	borderPad      int32
-	isFullscreen   bool // Toggle for full map view
-	initialZoom    float32
-	destinationX   int
-	destinationY   int
-	hasDestination bool
+	scale            float32
+	cornerPos        rl.Vector2 // Position for corner minimap
+	cornerSize       rl.Vector2 // Size for corner minimap
+	centerPos        rl.Vector2 // Position for centered map view
+	centerSize       rl.Vector2 // Size for centered map view
+	mapData          *world.Map
+	texture          rl.RenderTexture2D
+	isDirty          bool
+	borderPad        int32
+	isFullscreen     bool // Toggle for full map view
+	initialZoom      float32
+	destinationX     int
+	destinationY     int
+	hasDestination   bool
+	lastScreenWidth  float32
+	lastScreenHeight float32
 }
 
 func NewMinimap(mapData *world.Map) *Minimap {
@@ -57,6 +59,7 @@ func NewMinimap(mapData *world.Map) *Minimap {
 	scaleY := centerSize.Y / float32(helpers.MAP_HEIGHT*helpers.TILE_SIZE)
 	scale := min(scaleX, scaleY)
 
+	println("KJSDHKJQHDQJHDS")
 	// Use the same scale for both dimensions to maintain aspect ratio
 	texture := rl.LoadRenderTexture(
 		int32(float32(helpers.MAP_WIDTH*helpers.TILE_SIZE)*scale),  // Match map dimensions
@@ -64,16 +67,18 @@ func NewMinimap(mapData *world.Map) *Minimap {
 	)
 
 	return &Minimap{
-		scale:        scale,
-		cornerPos:    cornerPos,
-		cornerSize:   cornerSize,
-		centerPos:    centerPos,
-		centerSize:   centerSize,
-		mapData:      mapData,
-		texture:      texture,
-		isDirty:      true,
-		borderPad:    2,
-		isFullscreen: false,
+		scale:            scale,
+		cornerPos:        cornerPos,
+		cornerSize:       cornerSize,
+		centerPos:        centerPos,
+		centerSize:       centerSize,
+		mapData:          mapData,
+		texture:          texture,
+		isDirty:          true,
+		borderPad:        2,
+		isFullscreen:     false,
+		lastScreenWidth:  screenWidth,
+		lastScreenHeight: screenHeight,
 	}
 }
 
@@ -257,6 +262,15 @@ func (m *Minimap) SetDestination(x, y int) {
 func (m *Minimap) UpdateDimensions() {
 	screenWidth := float32(rl.GetScreenWidth())
 	screenHeight := float32(rl.GetScreenHeight())
+
+	// Skip update if dimensions haven't changed
+	if screenWidth == m.lastScreenWidth && screenHeight == m.lastScreenHeight {
+		return
+	}
+
+	// Store new dimensions
+	m.lastScreenWidth = screenWidth
+	m.lastScreenHeight = screenHeight
 
 	// Update corner minimap dimensions (20% of screen)
 	m.cornerSize = rl.Vector2{
