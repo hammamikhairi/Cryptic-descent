@@ -15,6 +15,8 @@ func main() {
 		monitor := rl.GetCurrentMonitor()
 		screenWidth = int32(rl.GetMonitorWidth(monitor))
 		screenHeight = int32(rl.GetMonitorHeight(monitor))
+		helpers.SCREEN_WIDTH = int32(rl.GetMonitorWidth(monitor))
+		helpers.SCREEN_HEIGHT = int32(rl.GetMonitorHeight(monitor))
 	} else {
 		screenWidth = helpers.SCREEN_WIDTH
 		screenHeight = helpers.SCREEN_HEIGHT
@@ -40,7 +42,7 @@ func main() {
 		if rl.IsKeyPressed(rl.KeyEnter) && (rl.IsKeyDown(rl.KeyLeftAlt) || rl.IsKeyDown(rl.KeyRightAlt)) {
 			if rl.IsWindowFullscreen() {
 				rl.ToggleFullscreen()
-				rl.SetWindowSize(helpers.SCREEN_WIDTH, helpers.SCREEN_HEIGHT)
+				rl.SetWindowSize(int(helpers.SCREEN_WIDTH), int(helpers.SCREEN_HEIGHT))
 			} else {
 				monitor := rl.GetCurrentMonitor()
 				rl.SetWindowSize(rl.GetMonitorWidth(monitor), rl.GetMonitorHeight(monitor))
