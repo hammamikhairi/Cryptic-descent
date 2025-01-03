@@ -91,3 +91,19 @@ func GetShiftDelay() float32 {
 	return float32(60 + rand.Intn(10))
 	// return float32(3)
 }
+
+func ClaculatePulse(shiftDelay, shiftTimer float32) float32 {
+	// Calculate progress from 0 to 1
+	startFadeAt := float32(0.5)
+	progress := 1 - ((shiftDelay - shiftTimer) / shiftDelay)
+
+	fmt.Println(shiftDelay, shiftTimer, progress)
+
+	if progress < startFadeAt {
+		// Completely invisible until startFadeAt
+		return 0
+	} else {
+		// Scale the remaining time to a 0-1 range for opacity
+		return ((progress - startFadeAt) / (1 - startFadeAt))
+	}
+}

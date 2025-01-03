@@ -487,7 +487,7 @@ func (g *Game) Render() {
 	rl.EndMode2D()
 
 	// Render minimap after EndMode2D so it stays fixed on screen
-	g.minimap.Render(g.player.Position, (g.shiftDelay-g.shiftTimer)/g.shiftDelay)
+	g.minimap.Render(g.player.Position, helpers.ClaculatePulse(g.shiftDelay, g.shiftTimer))
 	g.player.RenderHearts()
 	// g.player.TextBubble.Render(g.player.Position)
 

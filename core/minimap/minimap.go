@@ -3,7 +3,6 @@ package minimap
 import (
 	"crydes/helpers"
 	"crydes/world"
-	"fmt"
 
 	"math"
 
@@ -127,7 +126,6 @@ func (m *Minimap) RenderToTexture() {
 
 func (m *Minimap) Render(playerPos rl.Vector2, left float32) {
 
-	fmt.Println(left)
 	if !m.isFullscreen {
 		// Draw corner minimap
 		m.renderAt(m.cornerPos, m.cornerSize, playerPos, 3, left)
@@ -225,7 +223,7 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize*2,
-			rl.ColorAlpha(rl.Yellow, 0.2*(1-left)),
+			rl.ColorAlpha(rl.Yellow, 0.2*(left)),
 		)
 
 		// Draw inner circle
@@ -233,7 +231,7 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize,
-			rl.ColorAlpha(rl.Yellow, 0.7*(1-left)),
+			rl.ColorAlpha(rl.Yellow, 0.7*(left)),
 		)
 
 		// Draw center dot with fade
@@ -241,7 +239,7 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize/2,
-			rl.ColorAlpha(rl.Yellow, (1-left)),
+			rl.ColorAlpha(rl.Yellow, (left)),
 		)
 	}
 }

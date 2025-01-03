@@ -52,6 +52,7 @@ type Player struct {
 	TextBubble    *TextBubble
 	KeysCollected int
 	KeyTexture    rl.Texture2D
+	lastStepTime  time.Time
 }
 
 func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <-chan wrld.ItemEffectEvent) *Player {
@@ -136,6 +137,7 @@ func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <
 		TextBubble:     NewTextBubble(),
 		KeysCollected:  0,
 		KeyTexture:     keyTexture,
+		lastStepTime:   time.Now(),
 	}
 
 	// Show initial tutorial message
@@ -234,7 +236,7 @@ func (p *Player) Update(refreshRate float32) {
 func (p *Player) HandlePlayerMovement() bool {
 	// Determine target positions based on current position and speed
 	targetX, targetY := p.Position.X, p.Position.Y
-	moving := false
+	moved := false
 	// fmt.Println(p.Speed)
 
 	// Horizontal movement
@@ -244,7 +246,7 @@ func (p *Player) HandlePlayerMovement() bool {
 			p.Position.X = targetX
 			p.CurrentAnim = p.Animations["move_right"]
 			p.LastDirection = "right"
-			moving = true
+			moved = true
 		}
 	}
 	if rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA) {
@@ -253,7 +255,7 @@ func (p *Player) HandlePlayerMovement() bool {
 			p.Position.X = targetX
 			p.CurrentAnim = p.Animations["move_left"]
 			p.LastDirection = "left"
-			moving = true
+			moved = true
 		}
 	}
 
@@ -262,20 +264,31 @@ func (p *Player) HandlePlayerMovement() bool {
 		targetY -= p.Speed * MOV_SPEED
 		if p.IsTargetPositionWalkable(p.Position.X, targetY) {
 			p.Position.Y = targetY
-			moving = true
-			p.CurrentAnim = p.Animations["move_"+p.LastDirection] // Use the last horizontal direction
+			moved = true
+			p.CurrentAnim = p.Animations["move_"+p.LastDirection]
 		}
 	}
 	if rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS) {
 		targetY += p.Speed * MOV_SPEED
 		if p.IsTargetPositionWalkable(p.Position.X, targetY) {
 			p.Position.Y = targetY
-			moving = true
-			p.CurrentAnim = p.Animations["move_"+p.LastDirection] // Use the last horizontal direction
+			moved = true
+			p.CurrentAnim = p.Animations["move_"+p.LastDirection]
 		}
 	}
 
-	return moving
+	// Play footstep sound if we moved, with debounce
+	if moved {
+		now := time.Now()
+		stepDelay := 200 * time.Millisecond // Adjust this value to control footstep frequency
+
+		if now.Sub(p.lastStepTime) >= stepDelay {
+			p.audio.RequestSound("step", 0.5, 1.0)
+			p.lastStepTime = now
+		}
+	}
+
+	return moved
 }
 
 // IsTargetPositionWalkable checks if the target position is within a walkable block.

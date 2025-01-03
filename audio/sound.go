@@ -90,6 +90,7 @@ func (sm *SoundManager) loadSounds() {
 	sm.LoadSound("heal", "assets/audio/sfx/heal.mp3", 0.7)
 	sm.LoadSound("biwa", "assets/audio/sfx/biwa.mp3", 0.7)
 	sm.LoadSound("key", "assets/audio/sfx/key.mp3", 0.7)
+	sm.LoadSound("step", "assets/audio/sfx/step.wav", 0.7)
 
 	// Music tracks
 	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
