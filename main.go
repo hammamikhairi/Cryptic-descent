@@ -30,7 +30,7 @@ func main() {
 	defer rl.CloseWindow()
 
 	// Toggle fullscreen with Alt+Enter
-	// rl.SetExitKey(0) // Disable exit on ESC
+	rl.SetExitKey(0) // Disable exit on ESC
 
 	soundManager := audio.NewSoundManager()
 	defer soundManager.Unload()

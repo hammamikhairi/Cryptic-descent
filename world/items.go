@@ -172,9 +172,9 @@ func LoadItemAnimation(itemType ItemType) *helpers.Animation {
 		)
 	case Key:
 		return helpers.LoadAnimation("key",
-			"assets/items/key/1.png",
-			"assets/items/key/2.png",
-			"assets/items/key/3.png",
+			"assets/key/1.png",
+			"assets/key/2.png",
+			"assets/key/3.png",
 		)
 	case Poison:
 		return helpers.LoadAnimation("key",

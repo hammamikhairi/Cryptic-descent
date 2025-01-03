@@ -5,10 +5,15 @@ import (
 	effects "crydes/effects/particle"
 	helpers "crydes/helpers"
 	wrld "crydes/world"
+	"fmt"
 
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
+)
+
+const (
+	MAX_KEYS = 5
 )
 
 type Effect struct {
@@ -43,6 +48,10 @@ type Player struct {
 	audio         *audio.SoundManager
 	effectsChan   <-chan wrld.ItemEffectEvent
 	ActiveEffects map[string]*Effect
+
+	TextBubble    *TextBubble
+	KeysCollected int
+	KeyTexture    rl.Texture2D
 }
 
 func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <-chan wrld.ItemEffectEvent) *Player {
@@ -93,6 +102,7 @@ func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <
 	)
 
 	heartTexture := rl.LoadTexture("assets/ui/heart.png")
+	keyTexture := rl.LoadTexture("assets/ui/key.png")
 
 	p := &Player{
 		Position: rl.NewVector2(x, y),
@@ -123,7 +133,13 @@ func NewPlayer(x, y float32, mp *wrld.Map, sm *audio.SoundManager, effectsChan <
 		audio:          sm,
 		effectsChan:    effectsChan,
 		ActiveEffects:  make(map[string]*Effect),
+		TextBubble:     NewTextBubble(),
+		KeysCollected:  0,
+		KeyTexture:     keyTexture,
 	}
+
+	// Show initial tutorial message
+	p.TextBubble.ShowMessage(MSG_MOVEMENT)
 
 	go p.listenForEffects()
 	go p.listenForDamage()
@@ -147,6 +163,10 @@ func (p *Player) Update(refreshRate float32) {
 	case "taking_damage":
 		// Let the damage animation play out; no other actions allowed.
 		p.HandlePlayerMovement()
+
+		if p.Health == 2 {
+			p.ShowMessage(MSG_LOW_HEALTH)
+		}
 
 		p.CurrentAnim = p.Animations["damage_"+p.LastDirection]
 
@@ -202,6 +222,13 @@ func (p *Player) Update(refreshRate float32) {
 
 	// Update the animation frames
 	p.UpdateAnimation(refreshRate)
+
+	p.TextBubble.Update(refreshRate)
+
+	// Example triggers for messages
+	if p.Health <= 2 && !p.TextBubble.isVisible {
+		p.TextBubble.ShowMessage(MSG_LOW_HEALTH)
+	}
 }
 
 func (p *Player) HandlePlayerMovement() bool {
@@ -315,6 +342,7 @@ func (p *Player) Render() {
 
 	// Render the sword if visible.
 	p.Sword.Render()
+
 }
 
 // TakeDamage method to trigger the damage effect
@@ -417,12 +445,12 @@ func (p *Player) RenderHearts() {
 
 	// Draw blurry background - make it taller to accommodate effects
 	totalWidth := (heartSize+padding)*float32(5) + padding
-	effectHeight := float32(30) // Height for effect indicators
+	// effectHeight := float32(30) // Height for effect indicators
 	bgRect := rl.Rectangle{
 		X:      startX - padding,
-		Y:      startY - padding - effectHeight,
+		Y:      startY - padding,
 		Width:  totalWidth,
-		Height: heartSize + padding*2 + effectHeight,
+		Height: heartSize + padding*2,
 	}
 	rl.DrawRectangle(
 		int32(bgRect.X),
@@ -435,13 +463,43 @@ func (p *Player) RenderHearts() {
 	// Draw border
 	rl.DrawRectangleLinesEx(bgRect, 2, rl.ColorAlpha(rl.White, 0.3))
 
+	// Move effects to bottom center
+	// effectScale := float32(2.0)
+	effectWidth := float32(100) // Base width for each effect
+	effectHeight := float32(30)
+	effectPadding := float32(5)
+
+	// Calculate total width needed for all possible effects
+	maxEffects := 2 // speed and poison
+	totalEffectWidth := (effectWidth+effectPadding)*float32(maxEffects) - effectPadding
+
+	// Center position calculation
+	effectStartX := float32(rl.GetScreenWidth())/2 - totalEffectWidth/2
+	effectStartY := float32(rl.GetScreenHeight() - int(effectHeight) - 20)
+
+	// Draw blurry background for effects
+	effectBgRect := rl.Rectangle{
+		X:      effectStartX - effectPadding,
+		Y:      effectStartY - effectPadding,
+		Width:  totalEffectWidth + effectPadding*2,
+		Height: effectHeight + effectPadding*2,
+	}
+	rl.DrawRectangle(
+		int32(effectBgRect.X),
+		int32(effectBgRect.Y),
+		int32(effectBgRect.Width),
+		int32(effectBgRect.Height),
+		rl.NewColor(0, 0, 0, 100),
+	)
+
+	// Draw border for effects
+	rl.DrawRectangleLinesEx(effectBgRect, 2, rl.ColorAlpha(rl.White, 0.3))
+
 	// Render active effects
-	effectY := startY - effectHeight + padding
-	effectX := startX
+	effectX := effectStartX
 	for effectType, effect := range p.ActiveEffects {
 		remaining := effect.ExpiresAt.Sub(time.Now())
 		if remaining > 0 {
-			// Draw effect indicator
 			effectColor := rl.White
 			effectText := effectType
 			switch effectType {
@@ -453,22 +511,22 @@ func (p *Player) RenderHearts() {
 				effectText = "Poisoned"
 			}
 
-			// Draw effect name
-			rl.DrawText(effectText, int32(effectX), int32(effectY), 15, effectColor)
+			// Draw effect name (smaller text)
+			rl.DrawText(effectText, int32(effectX), int32(effectStartY+5), 12, effectColor)
 
 			// Draw timer bar
-			barWidth := float32(100)
+			barWidth := effectWidth
 			barHeight := float32(5)
 			progress := float32(remaining) / float32(effect.Duration)
 			rl.DrawRectangle(
 				int32(effectX),
-				int32(effectY)+22,
+				int32(effectStartY)+20,
 				int32(barWidth*progress),
 				int32(barHeight),
 				effectColor,
 			)
 
-			effectX += barWidth + padding
+			effectX += effectWidth + effectPadding
 		}
 	}
 
@@ -496,6 +554,45 @@ func (p *Player) RenderHearts() {
 			Y: startY,
 		}
 		rl.DrawTextureEx(p.HeartTexture, position, 0, heartScale, rl.White)
+	}
+
+	// Draw keys on the right side
+	keyScale := float32(2.0)
+	keySize := float32(16) * keyScale // Assuming key texture is 16x16
+	keyStartX := float32(rl.GetScreenWidth() - 20 - int(keySize+padding)*MAX_KEYS)
+	keyStartY := startY
+
+	// Draw blurry background for keys
+	keyBgRect := rl.Rectangle{
+		X:      keyStartX - padding,
+		Y:      keyStartY - padding,
+		Width:  (keySize+padding)*float32(MAX_KEYS) + padding,
+		Height: keySize + padding*2,
+	}
+	rl.DrawRectangle(
+		int32(keyBgRect.X),
+		int32(keyBgRect.Y),
+		int32(keyBgRect.Width),
+		int32(keyBgRect.Height),
+		rl.NewColor(0, 0, 0, 100),
+	)
+
+	// Draw border for keys
+	rl.DrawRectangleLinesEx(keyBgRect, 2, rl.ColorAlpha(rl.White, 0.3))
+
+	// Draw collected and uncollected keys
+	for i := 0; i < MAX_KEYS; i++ {
+		position := rl.Vector2{
+			X: keyStartX + (keySize+padding)*float32(i),
+			Y: keyStartY,
+		}
+
+		// Draw key texture with appropriate tint
+		color := rl.Gray
+		if i < p.KeysCollected {
+			color = rl.White
+		}
+		rl.DrawTextureEx(p.KeyTexture, position, 0, keyScale, color)
 	}
 }
 
@@ -541,8 +638,10 @@ func (p *Player) applyEffect(effectType string, value float32, duration time.Dur
 	switch effectType {
 	case "speed":
 		p.Speed *= value
+		p.TextBubble.ShowMessage(MSG_SPEED_BOOST)
 	case "poison":
 		go p.handlePoisonEffect(value, duration)
+		p.TextBubble.ShowMessage(MSG_POISONED)
 	}
 }
 
@@ -578,12 +677,30 @@ func (p *Player) listenForEffects() {
 		case "speed":
 			println("HELL YEAH")
 			p.applyEffect("speed", effect.Effect.Value, effect.Effect.Duration)
+			p.ShowMessage(MSG_SPEED_BOOST)
 		case "poison":
 			p.applyEffect("poison", effect.Effect.Value, effect.Effect.Duration)
+
+			p.ShowMessage(MSG_POISONED)
 		case "key":
-			// Implement key collection logic
+			p.KeysCollected++
+			p.audio.RequestSound("key", 1.0, 1.0) // Assuming you have a collect sound
+			if p.KeysCollected >= MAX_KEYS {
+				// Player has won!
+				go func() {
+					time.Sleep(2 * time.Second) // Wait for dungeon's taunt to finish
+					p.State = "victory"
+				}()
+				p.ShowMessage("I've Collected All of them!!")
+			} else {
+				p.ShowMessage(fmt.Sprintf("Key collected! %d/5", p.KeysCollected))
+			}
 		case "coin":
 			// Implement coin collection logic
 		}
 	}
+}
+
+func (p *Player) ShowMessage(text string) {
+	p.TextBubble.ShowMessage(text)
 }

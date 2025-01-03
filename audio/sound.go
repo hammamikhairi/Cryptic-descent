@@ -89,6 +89,7 @@ func (sm *SoundManager) loadSounds() {
 	sm.LoadSound("death", "assets/audio/sfx/death.mp3", 0.7)
 	sm.LoadSound("heal", "assets/audio/sfx/heal.mp3", 0.7)
 	sm.LoadSound("biwa", "assets/audio/sfx/biwa.mp3", 0.7)
+	sm.LoadSound("key", "assets/audio/sfx/key.mp3", 0.7)
 
 	// Music tracks
 	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
@@ -175,7 +176,7 @@ func (sm *SoundManager) processSoundRequests() {
 
 // RequestSound sends a sound request through the channel
 func (sm *SoundManager) RequestSound(name string, volume, pitch float32) {
-	println("requested sound")
+	println("requested sound + ", name)
 	sm.soundChan <- SoundRequest{
 		Name:   name,
 		Type:   SFX,

@@ -5,16 +5,19 @@ import (
 	"math"
 	"math/rand"
 
+	// "math/rand"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 // Define the Pathfinder struct which will handle pathfinding
 type Pathfinder struct {
-	grid   [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int // Copy of the dungeon map
-	open   []Node                                     // List of nodes to be evaluated
-	closed []Node                                     // List of nodes already evaluated
-	path   []Node                                     // The resulting path
-	rooms  []*Room                                    // List of rooms in the map
+	grid           [helpers.MAP_WIDTH][helpers.MAP_HEIGHT]int // Copy of the dungeon map
+	open           []Node                                     // List of nodes to be evaluated
+	closed         []Node                                     // List of nodes already evaluated
+	path           []Node                                     // The resulting path
+	rooms          []*Room                                    // List of rooms in the map
+	currentStarPos rl.Vector2                                 // Add this new field
 }
 
 // Define the Node struct which represents a point in the grid
@@ -38,8 +41,9 @@ func (n Node) TotalCost() float64 {
 // Initialize Pathfinder with the map grid
 func NewPathfinder(m *Map) *Pathfinder {
 	return &Pathfinder{
-		grid:  m.dungeon,
-		rooms: m.rooms,
+		grid:           m.dungeon,
+		rooms:          m.rooms,
+		currentStarPos: rl.Vector2{X: 0, Y: 0},
 	}
 }
 
@@ -94,202 +98,97 @@ func (pf *Pathfinder) Update(x1, y1, x2, y2 int) {
 }
 
 func (pf *Pathfinder) Render(currentRoomIndex int) {
-	if currentRoomIndex == -1 || currentRoomIndex >= len(pf.rooms) {
-		// No room found or invalid index, fallback to drawing the path normally.
-		pf.drawSmoothPath()
-		return
-	}
-
-	// Get the current room
-	// currentRoom := pf.rooms[currentRoomIndex]
-
-	// Check if the room has both entrance and exit
-	// if len(currentRoom.Doors) >= 2 {
-	// 	// Draw a direct line from entrance to exit
-	// 	entrance := currentRoom.Doors[0]
-	// 	exit := currentRoom.Doors[1]
-	// 	rl.DrawLineEx(entrance, exit, 3, rl.ColorAlpha(rl.Green, 0.7))
-	// } else {
-	// Draw the smooth path normally if there is no entrance-exit configuration
-	pf.drawSmoothPath()
-	// }
-}
-
-// Helper function to draw the smooth path if no entrance/exit is defined.
-func (pf *Pathfinder) drawSmoothPath() {
 	if len(pf.path) < 2 {
 		return
 	}
 
-	// Convert path points to world coordinates
-	points := make([]rl.Vector2, len(pf.path))
-	for i, node := range pf.path {
-		points[i] = rl.Vector2{
-			X: float32(node.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
-			Y: float32(node.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
-		}
+	// Get current player position (first node in path)
+	playerPos := rl.Vector2{
+		X: float32(pf.path[0].x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+		Y: float32(pf.path[0].y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
 	}
 
-	// Apply Catmull-Rom spline interpolation
-	smoothPoints := make([]rl.Vector2, 0)
-	segmentPoints := 8 // Number of points per segment
-
-	// Add first point
-	smoothPoints = append(smoothPoints, points[0])
-
-	// Interpolate middle points
-	for i := 0; i < len(points)-3; i++ {
-		p0 := points[i]
-		p1 := points[i+1]
-		p2 := points[i+2]
-		p3 := points[i+3]
-
-		for j := 0; j < segmentPoints; j++ {
-			t := float32(j) / float32(segmentPoints)
-
-			// Catmull-Rom interpolation
-			point := rl.Vector2{
-				X: catmullRom(t, p0.X, p1.X, p2.X, p3.X),
-				Y: catmullRom(t, p0.Y, p1.Y, p2.Y, p3.Y),
-			}
-
-			smoothPoints = append(smoothPoints, point)
-		}
+	// Get next waypoint (3-4 tiles ahead)
+	nextNode := pf.path[0]
+	for i := 1; i < len(pf.path) && i < 5; i++ { // Increased from 4 to 5 for further look-ahead
+		nextNode = pf.path[i]
 	}
 
-	// Add last point
-	smoothPoints = append(smoothPoints, points[len(points)-1])
-
-	// Draw the smooth path with gradient effect
-	for i := 0; i < len(smoothPoints)-1; i++ {
-		progress := float32(i) / float32(len(smoothPoints)-1)
-
-		// Create a gradient effect from green to blue
-		color := rl.ColorAlpha(rl.Color{
-			R: uint8(0),
-			G: uint8(255 * (1 - progress)),
-			B: uint8(255 * progress),
-			A: 255,
-		}, 0.6)
-
-		// Draw thicker line with smooth fade
-		thickness := 4.0 - (progress * 2.0)
-		rl.DrawLineEx(smoothPoints[i], smoothPoints[i+1], thickness, color)
-
-		// Add glow effect
-		rl.DrawLineEx(smoothPoints[i], smoothPoints[i+1], thickness+2,
-			rl.ColorAlpha(color, 0.2))
+	nextPos := rl.Vector2{
+		X: float32(nextNode.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+		Y: float32(nextNode.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
 	}
 
-	// Draw direction indicators
-	for i := 0; i < len(smoothPoints); i += 8 {
-		if i+1 < len(smoothPoints) {
-			drawDirectionIndicator(smoothPoints[i], smoothPoints[i+1])
-		}
+	// Calculate target position for the star (farther from player)
+	direction := rl.Vector2Subtract(nextPos, playerPos)
+	direction = rl.Vector2Normalize(direction)
+	targetStarPos := rl.Vector2Add(playerPos, rl.Vector2Scale(direction, float32(helpers.TILE_SIZE)*2.5)) // Increased from 1.5 to 2.5
+
+	// Smoothly interpolate current star position towards target position
+	smoothFactor := float32(0.1) // Lower value = smoother movement
+	pf.currentStarPos = rl.Vector2{
+		X: pf.currentStarPos.X + (targetStarPos.X-pf.currentStarPos.X)*smoothFactor,
+		Y: pf.currentStarPos.Y + (targetStarPos.Y-pf.currentStarPos.Y)*smoothFactor,
 	}
+
+	pf.drawStar(pf.currentStarPos)
 }
 
-func catmullRom(t, p0, p1, p2, p3 float32) float32 {
-	t2 := t * t
-	t3 := t2 * t
-
-	return 0.5 * ((2 * p1) +
-		(-p0+p2)*t +
-		(2*p0-5*p1+4*p2-p3)*t2 +
-		(-p0+3*p1-3*p2+p3)*t3)
-}
-
-func drawDirectionIndicator(p1, p2 rl.Vector2) {
-	dir := rl.Vector2Subtract(p2, p1)
-	dir = rl.Vector2Normalize(dir)
-
-	// Calculate perpendicular vector for arrow head
-	perp := rl.Vector2{X: -dir.Y, Y: dir.X}
-	arrowSize := float32(6.0)
-
-	// Calculate arrow head points
-	tip := rl.Vector2Add(p1, rl.Vector2Scale(dir, arrowSize*2))
-	left := rl.Vector2Subtract(tip, rl.Vector2Scale(rl.Vector2Add(dir, perp), arrowSize))
-	right := rl.Vector2Subtract(tip, rl.Vector2Scale(rl.Vector2Subtract(dir, perp), arrowSize))
-
-	// Draw arrow head
-	rl.DrawTriangle(tip, left, right, rl.ColorAlpha(rl.Green, 0.4))
-}
-
-// Find the index of the current room based on player position
-func (pf *Pathfinder) findCurrentRoom(position rl.Vector2) int {
-	for i, room := range pf.rooms {
-		if room.ContainsPoint(position) {
-			return i
-		}
-	}
-	return -1
-}
-
-func (pf *Pathfinder) createSmoothPath() []rl.Vector2 {
-	smoothPath := make([]rl.Vector2, 0)
-
-	for i, node := range pf.path {
-		baseX := float32(node.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2)
-		baseY := float32(node.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2)
-
-		// Add some randomness to the point position
-		jitterX := (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.5
-		jitterY := (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.5
-
-		point := rl.Vector2{
-			X: baseX + jitterX,
-			Y: baseY + jitterY,
-		}
-
-		// Add intermediate points for longer segments
-		if i > 0 {
-			prevPoint := smoothPath[len(smoothPath)-1]
-			distance := rl.Vector2Distance(prevPoint, point)
-
-			if distance > float32(helpers.TILE_SIZE)*1.5 {
-				numIntermediates := int(distance / float32(helpers.TILE_SIZE))
-				for j := 1; j < numIntermediates; j++ {
-					t := float32(j) / float32(numIntermediates)
-					intermediatePoint := rl.Vector2Lerp(prevPoint, point, t)
-
-					// Add some randomness to intermediate points
-					intermediatePoint.X += (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.3
-					intermediatePoint.Y += (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.3
-
-					smoothPath = append(smoothPath, intermediatePoint)
-				}
+// New method to get the next significant waypoint
+func (pf *Pathfinder) getNextWaypoint() rl.Vector2 {
+	// Get the next point in the path that's at least 3 tiles away
+	currentIndex := 0
+	for i := 1; i < len(pf.path); i++ {
+		dist := heuristic(pf.path[currentIndex].x, pf.path[currentIndex].y,
+			pf.path[i].x, pf.path[i].y)
+		if dist >= 3 {
+			return rl.Vector2{
+				X: float32(pf.path[i].x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+				Y: float32(pf.path[i].y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
 			}
 		}
-
-		smoothPath = append(smoothPath, point)
 	}
 
-	return smoothPath
+	// If no point is far enough, return the last point
+	lastNode := pf.path[len(pf.path)-1]
+	return rl.Vector2{
+		X: float32(lastNode.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+		Y: float32(lastNode.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2),
+	}
 }
 
-func (pf *Pathfinder) drawPathDecorations(smoothPath []rl.Vector2) {
-	for i := 0; i < len(smoothPath); i++ {
-		// Draw small circles at each point
-		rl.DrawCircleV(smoothPath[i], 2, rl.ColorAlpha(rl.Green, 0.5))
+func (pf *Pathfinder) drawStar(position rl.Vector2) {
+	time := float32(rl.GetTime())
+	pulse := (float32(math.Sin(float64(time*3))) + 1) / 2
 
-		// Occasionally draw some "foliage" or other decorative elements
-		if rand.Float32() < 0.2 {
-			pf.drawFoliage(smoothPath[i])
+	// Small star size
+	size := float32(helpers.TILE_SIZE) * 0.3
+	innerRadius := size * 0.4
+	outerRadius := size * (0.8 + pulse*0.2)
+
+	points := 4 // 4-pointed star
+	starColor := rl.ColorAlpha(rl.Gold, 0.8+pulse*0.2)
+
+	for i := 0; i < points*2; i++ {
+		radius := outerRadius
+		if i%2 == 1 {
+			radius = innerRadius
 		}
-	}
-}
 
-func (pf *Pathfinder) drawFoliage(position rl.Vector2) {
-	numLeaves := rand.Intn(3) + 2
-	for i := 0; i < numLeaves; i++ {
-		angle := rand.Float32() * 2 * math.Pi
-		distance := rand.Float32()*5 + 2
-		leafPos := rl.Vector2Add(position, rl.Vector2{
-			X: float32(math.Cos(float64(angle))) * distance,
-			Y: float32(math.Sin(float64(angle))) * distance,
-		})
-		rl.DrawCircleV(leafPos, 1, rl.ColorAlpha(rl.Green, 0.3))
+		angle := float32(i) * math.Pi / float32(points)
+		nextAngle := float32(i+1) * math.Pi / float32(points)
+
+		p1 := rl.Vector2{
+			X: position.X + float32(math.Cos(float64(angle)))*radius,
+			Y: position.Y + float32(math.Sin(float64(angle)))*radius,
+		}
+
+		p2 := rl.Vector2{
+			X: position.X + float32(math.Cos(float64(nextAngle)))*radius,
+			Y: position.Y + float32(math.Sin(float64(nextAngle)))*radius,
+		}
+
+		rl.DrawLineEx(p1, p2, 2, starColor)
 	}
 }
 
@@ -362,4 +261,45 @@ func (pf *Pathfinder) isInOpenList(node Node) bool {
 		}
 	}
 	return false
+}
+func (pf *Pathfinder) CreateSmoothPath() []rl.Vector2 {
+	smoothPath := make([]rl.Vector2, 0)
+
+	for i, node := range pf.path {
+		baseX := float32(node.x*helpers.TILE_SIZE + helpers.TILE_SIZE/2)
+		baseY := float32(node.y*helpers.TILE_SIZE + helpers.TILE_SIZE/2)
+
+		// Add some randomness to the point position
+		jitterX := (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.5
+		jitterY := (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.5
+
+		point := rl.Vector2{
+			X: baseX + jitterX,
+			Y: baseY + jitterY,
+		}
+
+		// Add intermediate points for longer segments
+		if i > 0 {
+			prevPoint := smoothPath[len(smoothPath)-1]
+			distance := rl.Vector2Distance(prevPoint, point)
+
+			if distance > float32(helpers.TILE_SIZE)*1.5 {
+				numIntermediates := int(distance / float32(helpers.TILE_SIZE))
+				for j := 1; j < numIntermediates; j++ {
+					t := float32(j) / float32(numIntermediates)
+					intermediatePoint := rl.Vector2Lerp(prevPoint, point, t)
+
+					// Add some randomness to intermediate points
+					intermediatePoint.X += (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.3
+					intermediatePoint.Y += (rand.Float32() - 0.5) * float32(helpers.TILE_SIZE) * 0.3
+
+					smoothPath = append(smoothPath, intermediatePoint)
+				}
+			}
+		}
+
+		smoothPath = append(smoothPath, point)
+	}
+
+	return smoothPath
 }

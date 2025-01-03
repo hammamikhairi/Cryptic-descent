@@ -10,6 +10,7 @@ const (
 	GAME
 	PAUSE
 	GAME_OVER
+	VICTORY
 	OUTRO
 )
 

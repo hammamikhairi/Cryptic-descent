@@ -3,6 +3,7 @@ package minimap
 import (
 	"crydes/helpers"
 	"crydes/world"
+	"fmt"
 
 	"math"
 
@@ -10,22 +11,23 @@ import (
 )
 
 type Minimap struct {
-	scale            float32
-	cornerPos        rl.Vector2 // Position for corner minimap
-	cornerSize       rl.Vector2 // Size for corner minimap
-	centerPos        rl.Vector2 // Position for centered map view
-	centerSize       rl.Vector2 // Size for centered map view
-	mapData          *world.Map
-	texture          rl.RenderTexture2D
-	isDirty          bool
-	borderPad        int32
-	isFullscreen     bool // Toggle for full map view
-	initialZoom      float32
-	destinationX     int
-	destinationY     int
-	hasDestination   bool
-	lastScreenWidth  float32
-	lastScreenHeight float32
+	scale                float32
+	cornerPos            rl.Vector2 // Position for corner minimap
+	cornerSize           rl.Vector2 // Size for corner minimap
+	centerPos            rl.Vector2 // Position for centered map view
+	centerSize           rl.Vector2 // Size for centered map view
+	mapData              *world.Map
+	texture              rl.RenderTexture2D
+	isDirty              bool
+	borderPad            int32
+	isFullscreen         bool // Toggle for full map view
+	initialZoom          float32
+	destinationX         int
+	destinationY         int
+	hasDestination       bool
+	lastScreenWidth      float32
+	lastScreenHeight     float32
+	destinationFadeStart float32
 }
 
 func NewMinimap(mapData *world.Map) *Minimap {
@@ -123,17 +125,19 @@ func (m *Minimap) RenderToTexture() {
 	rl.EndTextureMode()
 }
 
-func (m *Minimap) Render(playerPos rl.Vector2) {
+func (m *Minimap) Render(playerPos rl.Vector2, left float32) {
+
+	fmt.Println(left)
 	if !m.isFullscreen {
 		// Draw corner minimap
-		m.renderAt(m.cornerPos, m.cornerSize, playerPos, 3)
+		m.renderAt(m.cornerPos, m.cornerSize, playerPos, 3, left)
 	} else {
 		// Draw semi-transparent background
 		rl.DrawRectangle(0, 0, helpers.SCREEN_WIDTH, helpers.SCREEN_HEIGHT,
 			rl.ColorAlpha(rl.Black, 0.7))
 
 		// Draw centered map
-		m.renderAt(m.centerPos, m.centerSize, playerPos, 6)
+		m.renderAt(m.centerPos, m.centerSize, playerPos, 6, left)
 
 		// Draw instructions
 		text := "Press T to close map"
@@ -146,7 +150,7 @@ func (m *Minimap) Render(playerPos rl.Vector2) {
 			rl.White)
 	}
 }
-func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDotSize float32) {
+func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDotSize, left float32) {
 	// Draw outer border (dark gray)
 	outerPad := m.borderPad + 1
 	rl.DrawRectangle(
@@ -221,7 +225,7 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize*2,
-			rl.ColorAlpha(rl.Yellow, 0.2),
+			rl.ColorAlpha(rl.Yellow, 0.2*(1-left)),
 		)
 
 		// Draw inner circle
@@ -229,15 +233,15 @@ func (m *Minimap) renderAt(pos, size rl.Vector2, playerPos rl.Vector2, playerDot
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize,
-			rl.ColorAlpha(rl.Yellow, 0.7),
+			rl.ColorAlpha(rl.Yellow, 0.7*(1-left)),
 		)
 
-		// Draw center dot
+		// Draw center dot with fade
 		rl.DrawCircle(
 			int32(pos.X+destMapX),
 			int32(pos.Y+destMapY),
 			markerSize/2,
-			rl.Yellow,
+			rl.ColorAlpha(rl.Yellow, (1-left)),
 		)
 	}
 }
@@ -257,6 +261,7 @@ func (m *Minimap) SetDestination(x, y int) {
 	m.destinationX = x
 	m.destinationY = y
 	m.hasDestination = true
+	m.destinationFadeStart = float32(rl.GetTime())
 }
 
 func (m *Minimap) UpdateDimensions() {

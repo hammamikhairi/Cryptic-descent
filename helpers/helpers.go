@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"math/rand"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -84,4 +85,9 @@ func Clamp(value, min, max float32) float32 {
 		return max
 	}
 	return value
+}
+
+func GetShiftDelay() float32 {
+	return float32(60 + rand.Intn(10))
+	// return float32(3)
 }

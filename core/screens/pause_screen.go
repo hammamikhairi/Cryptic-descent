@@ -40,7 +40,7 @@ func (ps *PauseScreen) Init() {
 		}),
 		NewButton(startX, startY+buttonHeight+20, buttonWidth, buttonHeight, "Quit", func() {
 			ps.soundManager.RequestSound("menu_select", 1.0, 1.0)
-			ps.nextScreen = TITLE
+			rl.CloseWindow()
 		}),
 	}
 }
@@ -49,6 +49,16 @@ func (ps *PauseScreen) Update(deltaTime float32) bool {
 	for _, button := range ps.buttons {
 		button.Update()
 	}
+
+	// Handle pause toggle
+	if rl.IsKeyPressed(rl.KeyEscape) {
+		return true
+	}
+
+	defer func() {
+		ps.nextScreen = PAUSE
+	}()
+
 	return ps.nextScreen == GAME
 }
 

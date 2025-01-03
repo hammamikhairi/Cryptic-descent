@@ -82,6 +82,11 @@ func (cm *CollectibleManager) ScatterCollectibles(rooms []helpers.Rectangle, mp 
 			itemID++
 		}
 	}
+
+	// set up key
+	lastRoom := rooms[len(rooms)-1]
+	// destX, destY := g.GetLastRoomPos()
+	cm.AddItem(999, Key, lastRoom.GetRandomPosInRect().X, lastRoom.GetRandomPosInRect().Y)
 }
 
 func calculateItemsForRoom(size RoomSize) int {

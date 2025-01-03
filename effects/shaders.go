@@ -77,7 +77,7 @@ func NewRetroLightingEffect(screenWidth, screenHeight int32, lightRadius float32
 		},
 		currentModeIndex: 0,
 		lightSources:     []LightSourceIf{},
-		visibleRange:     float32(screenWidth) / 4,
+		visibleRange:     float32(screenWidth) / 8,
 	}
 
 	rle.modes = map[string]func(rl.Vector2, float32){
