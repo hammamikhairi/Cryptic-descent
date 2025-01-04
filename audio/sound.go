@@ -93,9 +93,9 @@ func (sm *SoundManager) loadSounds() {
 	sm.LoadSound("step", "assets/audio/sfx/step.wav", 0.7)
 
 	// Music tracks
-	sm.LoadMusic("title_theme", "assets/audio/music/bg.mp3")
+	sm.LoadMusic("title_theme", "assets/audio/music/loopable.mp3")
 	sm.LoadMusic("dungeon_theme", "assets/audio/music/gameplay.mp3")
-	sm.LoadMusic("outro", "assets/audio/music/outro.mp3")
+	sm.LoadMusic("outro", "assets/audio/music/loopable.mp3")
 	// sm.LoadMusic("boss_theme", "assets/audio/music/bg.mp3")
 }
 

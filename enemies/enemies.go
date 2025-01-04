@@ -2,6 +2,7 @@ package enemies
 
 import (
 	"math/rand"
+	"sync"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
@@ -20,6 +21,9 @@ type EnemiesManager struct {
 
 	inComingDamage chan rl.Rectangle
 	soundManager   *audio.SoundManager
+	KilledCount    int
+
+	mutex sync.RWMutex
 }
 
 func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.Rectangle, rooms []helpers.Rectangle, soundManager *audio.SoundManager) *EnemiesManager {
@@ -30,6 +34,7 @@ func NewEnemiesManager(pX, pY float32, mp *world.Map, playerAttackChan chan rl.R
 		inComingDamage: playerAttackChan,
 		Rooms:          rooms,
 		soundManager:   soundManager,
+		mutex:          sync.RWMutex{},
 	}
 
 	manager.LoadAnimations()
@@ -55,7 +60,9 @@ func (em *EnemiesManager) Update(refreshRate float32, p *player.Player) {
 			continue
 		}
 
-		e.Update(refreshRate, p)
+		if helpers.Distance(p.Position, e.Position) <= 200 {
+			e.Update(refreshRate, p)
+		}
 	}
 
 	// clean up dead enemies
@@ -76,6 +83,7 @@ func (em *EnemiesManager) Update(refreshRate float32, p *player.Player) {
 
 func (em *EnemiesManager) ResetEnemies() {
 	em.Enemies = []*Enemy{}
+	em.KilledCount = 0
 	em.SpawnEnemies()
 }
 
@@ -83,7 +91,7 @@ func (em *EnemiesManager) SpawnEnemies() {
 	// First spawn in rooms as before
 	em.spawnEnemiesInRooms()
 	// Then spawn in corridors
-	// em.spawnEnemiesInCorridors()
+	em.spawnEnemiesInCorridors()
 }
 
 // Move the existing room spawning logic to this method
@@ -116,6 +124,11 @@ func (em *EnemiesManager) spawnEnemiesInRooms() {
 				health,
 				i,
 				em.soundManager,
+				func() {
+					em.mutex.Lock()
+					em.KilledCount++
+					em.mutex.Unlock()
+				},
 			)
 
 			em.Enemies = append(em.Enemies, enemy)
@@ -131,7 +144,7 @@ func (em *EnemiesManager) spawnEnemiesInCorridors() {
 	spawnFrequency := 20 // Adjust this value to control density
 
 	for i := 0; i < len(corridorTiles); i += spawnFrequency {
-		if rand.Float32() < 0.3 { // 30% chance to spawn at each valid location
+		if rand.Float32() < 0.5 { // 30% chance to spawn at each valid location
 			pos := corridorTiles[i]
 			eType := helpers.GetRandomEnemyType()
 
@@ -147,6 +160,11 @@ func (em *EnemiesManager) spawnEnemiesInCorridors() {
 				2,  // Less health
 				-1, // No specific room
 				em.soundManager,
+				func() {
+					em.mutex.Lock()
+					em.KilledCount++
+					em.mutex.Unlock()
+				},
 			)
 
 			em.Enemies = append(em.Enemies, enemy)

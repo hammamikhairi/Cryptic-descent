@@ -97,7 +97,7 @@ func ClaculatePulse(shiftDelay, shiftTimer float32) float32 {
 	startFadeAt := float32(0.5)
 	progress := 1 - ((shiftDelay - shiftTimer) / shiftDelay)
 
-	fmt.Println(shiftDelay, shiftTimer, progress)
+	// fmt.Println(shiftDelay, shiftTimer, progress)
 
 	if progress < startFadeAt {
 		// Completely invisible until startFadeAt

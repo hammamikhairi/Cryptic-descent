@@ -27,6 +27,8 @@ type TitleScreen struct {
 	pathIndex        int
 	demoCollectibles []rl.Vector2
 	collectibleTimer float32
+	attackTimer      float32
+	attackInterval   float32
 }
 
 func NewTitleScreen(soundManager *audio.SoundManager) *TitleScreen {
@@ -34,6 +36,8 @@ func NewTitleScreen(soundManager *audio.SoundManager) *TitleScreen {
 		soundManager:     soundManager,
 		nextScreen:       TITLE,
 		demoCollectibles: make([]rl.Vector2, 0),
+		attackTimer:      0,
+		attackInterval:   2.0,
 	}
 
 	// Initialize demo world
@@ -48,7 +52,7 @@ func NewTitleScreen(soundManager *audio.SoundManager) *TitleScreen {
 
 	// Set up camera for demo scene
 	ts.demoCamera = rl.Camera2D{
-		Offset:   rl.Vector2{X: float32(rl.GetScreenWidth()) / 2, Y: float32(rl.GetScreenHeight()) / 2},
+		Offset:   rl.Vector2{X: float32(rl.GetScreenWidth()) / 2, Y: float32(rl.GetScreenHeight()) / 3},
 		Target:   rl.Vector2{X: x, Y: y},
 		Rotation: 0.0,
 		Zoom:     3.0,
@@ -161,7 +165,32 @@ func (ts *TitleScreen) updateDemoScene(deltaTime float32) {
 			direction = rl.Vector2Normalize(direction)
 			ts.demoPlayer.Position.X += direction.X * moveSpeed * deltaTime
 			ts.demoPlayer.Position.Y += direction.Y * moveSpeed * deltaTime
+			// Determine the appropriate animation
+			var newAnim *helpers.Animation
+			if direction.X > 0 {
+				newAnim = ts.demoPlayer.Animations["move_right"]
+				ts.demoPlayer.LastDirection = "right"
+			} else if direction.X < 0 {
+				newAnim = ts.demoPlayer.Animations["move_left"]
+				ts.demoPlayer.LastDirection = "left"
+			} else if direction.Y < 0 {
+				newAnim = ts.demoPlayer.Animations["move_up"]
+			} else if direction.Y > 0 {
+				newAnim = ts.demoPlayer.Animations["move_down"]
+			}
+
+			// Only update the animation if it's different from the current one
+			if ts.demoPlayer.CurrentAnim.ID != newAnim.ID {
+				ts.demoPlayer.CurrentAnim = newAnim
+			}
 		}
+	}
+
+	// Update attack timer
+	ts.attackTimer += deltaTime
+	if ts.attackTimer >= ts.attackInterval {
+		ts.demoPlayer.Attack()
+		ts.attackTimer = 0
 	}
 
 	// Update player animation
@@ -170,15 +199,6 @@ func (ts *TitleScreen) updateDemoScene(deltaTime float32) {
 	// Update camera to follow player
 	ts.demoCamera.Target = ts.demoPlayer.Position
 
-	// Update collectibles
-	// ts.collectibleTimer += deltaTime
-	// if ts.collectibleTimer >= 2.0 && len(ts.demoCollectibles) < 5 {
-	// 	// Spawn new collectible every 2 seconds if less than 5 exist
-	// 	x := float32(rand.Intn(helpers.MAP_WIDTH * helpers.TILE_SIZE))
-	// 	y := float32(rand.Intn(helpers.MAP_HEIGHT * helpers.TILE_SIZE))
-	// 	ts.demoCollectibles = append(ts.demoCollectibles, rl.Vector2{X: x, Y: y})
-	// 	ts.collectibleTimer = 0
-	// }
 }
 
 func (ts *TitleScreen) Type() ScreenType {
@@ -201,7 +221,7 @@ func (ts *TitleScreen) Render() {
 
 	// Draw semi-transparent overlay
 	rl.DrawRectangle(0, 0, int32(rl.GetScreenWidth()), int32(rl.GetScreenHeight()),
-		rl.ColorAlpha(rl.Black, 0.7))
+		rl.ColorAlpha(rl.Black, 0.8))
 
 	// Draw title with gradient
 	titleText := "Cryptic Descent"

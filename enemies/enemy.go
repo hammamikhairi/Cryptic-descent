@@ -32,6 +32,9 @@ type Enemy struct {
 	CurrentRoom  int
 	soundManager *audio.SoundManager
 	particles    *ps.ParticleSystem
+
+	onDeath     func()
+	didCallback bool
 }
 
 // Constructor for a new Enemy instance
@@ -45,6 +48,7 @@ func NewEnemy(
 	health int,
 	CurrentRoom int,
 	sm *audio.SoundManager,
+	onDeath func(),
 ) *Enemy {
 	e := &Enemy{
 		Position:      rl.NewVector2(x, y),
@@ -59,6 +63,8 @@ func NewEnemy(
 		CurrentRoom:   CurrentRoom,
 		soundManager:  sm,
 		particles:     ps.NewParticleSystem(),
+		onDeath:       onDeath,
+		didCallback:   false,
 	}
 
 	go e.ListenForDamage()
@@ -123,7 +129,8 @@ func (e *Enemy) MoveTowardsPlayer(refreshRate float32, p *player.Player) {
 	// Calculate distance to the player and adjust position
 	distance := helpers.GetDistance(e.Position, p.Position)
 
-	if distance < helpers.ENEMIES_PLAYER_RANGE && (p.GetPlayerRoom() == e.CurrentRoom || e.CurrentRoom == -1) {
+	// if distance < helpers.ENEMIES_PLAYER_RANGE && (p.GetPlayerRoom() == e.CurrentRoom || e.CurrentRoom == -1) {
+	if distance < helpers.ENEMIES_PLAYER_RANGE {
 		deltaX := p.Position.X - e.Position.X
 		deltaY := p.Position.Y - e.Position.Y
 
@@ -205,6 +212,11 @@ func (e *Enemy) BounceBack(x, y float32) {
 
 // Triggers the death animation for the enemy.
 func (e *Enemy) TriggerDeath() {
+	if !e.didCallback {
+		e.didCallback = true
+		e.onDeath()
+	}
+
 	if e.LastDirection != "right" {
 		e.CurrentAnim = (*e.Animations)["death_right"]
 	} else {

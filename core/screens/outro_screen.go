@@ -31,7 +31,7 @@ func NewOutroScreen(soundManager *audio.SoundManager) *OutroScreen {
 		credits: []CreditEntry{
 			{"Game Design", "Khairi Hammami"},
 			{"Development", "Khairi Hammami"},
-			// {"Music", "Khairi Hammami"},
+			{"Music", "Mohamed Amine Dridi"},
 			{"Sound Effects", "Khairi Hammami"},
 			{"Writing", "Khairi Hammami"},
 			{"Sprites", "Khairi Hammami"},

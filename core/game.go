@@ -22,6 +22,7 @@ import (
 // ! FOR DEVELOPMENT
 const (
 	RENDER_LIGHTING = 1 << iota
+	RENDER_DEBUG
 )
 
 //! END DEVELOPMENT
@@ -241,21 +242,22 @@ func (g *Game) Run() {
 			continue
 		}
 
-		rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Gray)
-		fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
-		rl.DrawText(fpsText, 10, 35, 20, rl.Gray)
-		rl.DrawText(fmt.Sprintf("CAM ZOOM : %.3f", g.camera.Zoom), 10, 60, 20, rl.Gray)
-		rl.DrawText(fmt.Sprintf("DECAY FACTOR : %.3f", helpers.DECAY_FACTOR), 10, 85, 20, rl.Gray)
-		rl.DrawText(fmt.Sprintf("LIGHT RADIUS : %.3f", helpers.LIGHT_RADIUS), 10, 110, 20, rl.Gray)
+		if g.flags&RENDER_DEBUG != 0 {
+			rl.DrawText("Cryptic Descent", 10, 10, 20, rl.Gray)
+			fpsText := fmt.Sprintf("FPS: %d", rl.GetFPS())
+			rl.DrawText(fpsText, 10, 35, 20, rl.Gray)
+			rl.DrawText(fmt.Sprintf("CAM ZOOM : %.3f", g.camera.Zoom), 10, 60, 20, rl.Gray)
+			rl.DrawText(fmt.Sprintf("DECAY FACTOR : %.3f", helpers.DECAY_FACTOR), 10, 85, 20, rl.Gray)
+			rl.DrawText(fmt.Sprintf("LIGHT RADIUS : %.3f", helpers.LIGHT_RADIUS), 10, 110, 20, rl.Gray)
 
-		// Debug information
-		rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
-		rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
-		rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
-		// if g.isShifting {
-		// rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
-		// }
-
+			// Debug information
+			rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
+			rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
+			rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
+			// if g.isShifting {
+			// rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
+			// }
+		}
 		rl.EndDrawing()
 	}
 }
@@ -321,6 +323,12 @@ func (g *Game) Update(deltaTime float32) {
 	if rl.IsKeyDown(rl.KeyL) {
 		if time.Since(lastLightSwitch) > time.Second {
 			g.flags ^= RENDER_LIGHTING
+			lastLightSwitch = time.Now()
+		}
+	}
+	if rl.IsKeyDown(rl.KeyO) {
+		if time.Since(lastLightSwitch) > time.Second {
+			g.flags ^= RENDER_DEBUG
 			lastLightSwitch = time.Now()
 		}
 	}
@@ -476,20 +484,24 @@ func (g *Game) Render() {
 	// g.transition.Render()
 	// g.world.Pathfinde<r.Render()
 	// //
-	g.world.Pathfinder.Render(
-		g.player.GetPlayerRoom(),
-	)
+	g.collectiblesManager.Render()
+	// g.world.Pathfinder.Render(
+	// 	g.player.GetPlayerRoom(),
+	// )
 
 	if g.flags&RENDER_LIGHTING != 0 {
 		g.lightning.Render()
 	}
-	g.collectiblesManager.Render()
 	rl.EndMode2D()
 
 	// Render minimap after EndMode2D so it stays fixed on screen
 	g.minimap.Render(g.player.Position, helpers.ClaculatePulse(g.shiftDelay, g.shiftTimer))
 	g.player.RenderHearts()
-	// g.player.TextBubble.Render(g.player.Position)
+	g.player.TextBubble.Render(g.player.Position)
+	startX := float32(20)
+	startY := float32(rl.GetScreenHeight()) - 100
+
+	rl.DrawText(fmt.Sprintf("Enemies Killed: %d", g.enemies.KilledCount), int32(startX), int32(startY), 20, rl.Gray)
 
 	// Render shift transition effects
 	if g.isShifting {
@@ -523,13 +535,12 @@ func (g *Game) Render() {
 		}
 	}
 
-	// Debug information
-	rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
-	rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
-	rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
-	// if g.isShifting {
-	// 	rl.DrawText(fmt.Sprintf("Text Progress: %d/%d", g.shiftTextIndex, len(g.shiftText)), 10, 210, 20, rl.Gray)
-	// }
+	if g.flags&RENDER_DEBUG != 0 {
+		// Debug information
+		rl.DrawText(fmt.Sprintf("Shift Timer: %.1f / %.1f", g.shiftTimer, g.shiftDelay), 10, 135, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("Is Shifting: %v", g.isShifting), 10, 160, 20, rl.Gray)
+		rl.DrawText(fmt.Sprintf("Fade Alpha: %.2f", g.fadeAlpha), 10, 185, 20, rl.Gray)
+	}
 }
 
 func (g *Game) checkGameEnd() bool {

@@ -23,7 +23,7 @@ const (
 
 	DAMAGE_DURATION = time.Duration(0.1 * float32(time.Second))
 
-	ENEMIES_PLAYER_RANGE = 100
+	ENEMIES_PLAYER_RANGE = 200
 	ENEMIES_MOV_SPEED    = 0.001
 	// ENEMIES_EPSILON                    = 0.001
 	ENEMIES_BOUNCE_BACK_DISTANCE       = 6
