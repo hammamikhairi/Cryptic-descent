@@ -54,11 +54,9 @@ It's not a puzzle. It's not a shooter. It's a dungeon that resets itself against
 
 
 
-## 📸 Screenshots
+## Screenshots
 
-![Gameplay Screenshot](assets/screenshot_gameplay.png)
-![Lighting System](assets/screenshot_lighting.png)
-![Procedural Dungeon](assets/screenshot_dungeon.png)
+![Gameplay Screenshot](gameplay.png)
 
 
 ## Run It Locally
